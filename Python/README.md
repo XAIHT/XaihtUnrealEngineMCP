@@ -1,6 +1,6 @@
 # Unreal MCP
 
-Python bridge for interacting with Unreal Engine 5.5 using the Model Context Protocol (MCP).
+Python bridge for interacting with Unreal Engine 5.7+ using the Model Context Protocol (MCP).
 
 This is the MCP **server** side. It runs `unreal_mcp_server.py` (a FastMCP server over
 stdio), connects to the C++ `UnrealMCP` plugin over a TCP socket on
@@ -58,7 +58,7 @@ the editor is closed. Set these once so you don't have to pass paths every call:
 
 ```bash
 # Windows
-setx UNREAL_EDITOR_CMD "C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
+setx UNREAL_EDITOR_CMD "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
 setx UNREAL_UPROJECT  "C:\Development\unreal-mcp\MCPGameProject\MCPGameProject.uproject"
 ```
 

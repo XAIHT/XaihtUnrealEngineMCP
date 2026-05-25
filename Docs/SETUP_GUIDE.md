@@ -13,7 +13,7 @@ This guide takes you from nothing to a working Unreal Engine MCP setup that an A
 
 | Requirement | Version / notes |
 |---|---|
-| **Unreal Engine** | 5.5+ (installed via Epic Games Launcher or source) |
+| **Unreal Engine** | 5.7+ (installed via Epic Games Launcher or source) |
 | **Visual Studio 2022** | Workloads: *Game development with C++* **and** *Desktop development with C++*. Required to compile the plugin. |
 | **Python** | 3.10+ (3.12 recommended) |
 | **uv** | Python package/runner used to launch the server |
@@ -35,7 +35,7 @@ cd unreal-mcp
 (If you already have this repo at `C:\Development\unreal-mcp`, skip this.)
 
 Repository layout you care about:
-- `MCPGameProject/` — a ready-to-use UE 5.5 project with the plugin pre-installed
+- `MCPGameProject/` — a ready-to-use UE 5.7 project with the plugin pre-installed
 - `MCPGameProject/Plugins/UnrealMCP/` — the C++ plugin
 - `Python/` — the MCP server and tools
 
@@ -51,7 +51,7 @@ You can either use the bundled sample project (fastest) or add the plugin to you
    - Right-click `MCPGameProject/MCPGameProject.uproject` → **Generate Visual Studio
      project files**.
    - *(No right-click option? Run:
-     `"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe" -projectfiles -project="C:\Development\unreal-mcp\MCPGameProject\MCPGameProject.uproject" -game -engine`)*
+     `"C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe" -projectfiles -project="C:\Development\unreal-mcp\MCPGameProject\MCPGameProject.uproject" -game -engine`)*
 
 2. **Build the editor target**
    - Open `MCPGameProject/MCPGameProject.sln` in Visual Studio 2022.
@@ -189,7 +189,7 @@ The model picks the matching tool (e.g. `get_actors_in_level`, `spawn_actor`,
 editor closed. Point them at your engine + project once via environment variables:
 
 ```powershell
-setx UNREAL_EDITOR_CMD "C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
+setx UNREAL_EDITOR_CMD "C:\Program Files\Epic Games\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
 setx UNREAL_UPROJECT  "C:\Development\unreal-mcp\MCPGameProject\MCPGameProject.uproject"
 ```
 (Restart the terminal/client after `setx`.) Or pass `editor_cmd` / `uproject` as tool

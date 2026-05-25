@@ -82,7 +82,7 @@ not have to be passed every call:
 {
   "command": "build_project",
   "params": {
-    "editor_cmd": "C:/Program Files/Epic Games/UE_5.5/Engine/Binaries/Win64/UnrealEditor-Cmd.exe",
+    "editor_cmd": "C:/Program Files/Epic Games/UE_5.7/Engine/Binaries/Win64/UnrealEditor-Cmd.exe",
     "uproject": "C:/Development/unreal-mcp/MCPGameProject/MCPGameProject.uproject"
   }
 }
