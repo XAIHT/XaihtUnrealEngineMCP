@@ -77,6 +77,9 @@ UUnrealMCPBridge::UUnrealMCPBridge()
     LevelCommands = MakeShared<FUnrealMCPLevelCommands>();
     AssetCommands = MakeShared<FUnrealMCPAssetCommands>();
     MaterialCommands = MakeShared<FUnrealMCPMaterialCommands>();
+
+    // Build the self-registering command registry (Proposal #1)
+    BuildCommandRegistry();
 }
 
 UUnrealMCPBridge::~UUnrealMCPBridge()
@@ -212,6 +215,191 @@ void UUnrealMCPBridge::StopServer()
     UE_LOG(LogTemp, Display, TEXT("UnrealMCPBridge: Server stopped"));
 }
 
+// Build the self-registering command registry (Proposal #1)
+void UUnrealMCPBridge::BuildCommandRegistry()
+{
+    // Editor Commands
+    const TArray<FString> EditorCmds = {
+        TEXT("ping"),
+        TEXT("get_actors_in_level"), TEXT("find_actors_by_name"),
+        TEXT("spawn_actor"), TEXT("create_actor"), TEXT("delete_actor"),
+        TEXT("set_actor_transform"), TEXT("get_actor_properties"), TEXT("set_actor_property"),
+        TEXT("spawn_blueprint_actor"), TEXT("focus_viewport"), TEXT("take_screenshot")
+    };
+    for (const FString& Cmd : EditorCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("editor"));
+    }
+
+    // Blueprint Commands
+    const TArray<FString> BlueprintCmds = {
+        TEXT("create_blueprint"), TEXT("add_component_to_blueprint"),
+        TEXT("set_component_property"), TEXT("set_physics_properties"),
+        TEXT("compile_blueprint"), TEXT("set_blueprint_property"),
+        TEXT("set_static_mesh_properties"), TEXT("set_pawn_properties")
+    };
+    for (const FString& Cmd : BlueprintCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("blueprint"));
+    }
+
+    // Blueprint Node Commands
+    const TArray<FString> BlueprintNodeCmds = {
+        TEXT("connect_blueprint_nodes"), TEXT("add_blueprint_get_self_component_reference"),
+        TEXT("add_blueprint_self_reference"), TEXT("find_blueprint_nodes"),
+        TEXT("add_blueprint_event_node"), TEXT("add_blueprint_input_action_node"),
+        TEXT("add_blueprint_function_node"), TEXT("add_blueprint_variable")
+    };
+    for (const FString& Cmd : BlueprintNodeCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("blueprint_node"));
+    }
+
+    // Project Commands
+    const TArray<FString> ProjectCmds = {
+        TEXT("create_input_mapping")
+    };
+    for (const FString& Cmd : ProjectCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("project"));
+    }
+
+    // UMG Commands
+    const TArray<FString> UMGCmds = {
+        TEXT("create_umg_widget_blueprint"), TEXT("add_text_block_to_widget"),
+        TEXT("add_button_to_widget"), TEXT("bind_widget_event"),
+        TEXT("set_text_block_binding"), TEXT("add_widget_to_viewport")
+    };
+    for (const FString& Cmd : UMGCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("umg"));
+    }
+
+    // System Commands
+    const TArray<FString> SystemCmds = {
+        TEXT("execute_python"), TEXT("execute_console_command"),
+        TEXT("get_class_info"), TEXT("list_assets")
+    };
+    for (const FString& Cmd : SystemCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("system"));
+    }
+
+    // Level Commands
+    const TArray<FString> LevelCmds = {
+        TEXT("open_level"), TEXT("save_current_level"),
+        TEXT("save_all"), TEXT("new_level"), TEXT("get_current_level")
+    };
+    for (const FString& Cmd : LevelCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("level"));
+    }
+
+    // Asset Commands
+    const TArray<FString> AssetCmds = {
+        TEXT("import_asset"), TEXT("duplicate_asset"),
+        TEXT("rename_asset"), TEXT("delete_asset"),
+        TEXT("save_asset"), TEXT("create_folder")
+    };
+    for (const FString& Cmd : AssetCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("asset"));
+    }
+
+    // Material Commands
+    const TArray<FString> MaterialCmds = {
+        TEXT("create_material"), TEXT("create_material_instance"),
+        TEXT("set_material_parameter"), TEXT("assign_material")
+    };
+    for (const FString& Cmd : MaterialCmds)
+    {
+        SupportedCommands.Add(Cmd);
+        CommandToCategoryMap.Add(Cmd, TEXT("material"));
+    }
+}
+
+// Runtime command discovery (Proposal #2)
+TArray<FString> UUnrealMCPBridge::GetSupportedCommands() const
+{
+    TArray<FString> Commands;
+    SupportedCommands.GenerateArray(Commands);
+    Commands.Sort();
+    return Commands;
+}
+
+FString UUnrealMCPBridge::GetCommandCategory(const FString& CommandType) const
+{
+    const FString* Category = CommandToCategoryMap.Find(CommandType);
+    return Category ? *Category : TEXT("unknown");
+}
+
+// Command suggestion engine (Proposal #7)
+FString UUnrealMCPBridge::SuggestCommand(const FString& UnknownCommand) const
+{
+    FString BestMatch;
+    int32 BestDistance = INT32_MAX;
+
+    for (const FString& Cmd : SupportedCommands)
+    {
+        int32 Dist = LevenshteinDistance(UnknownCommand, Cmd);
+        if (Dist < BestDistance)
+        {
+            BestDistance = Dist;
+            BestMatch = Cmd;
+        }
+    }
+
+    // Only suggest if reasonably close (threshold = 5)
+    if (BestDistance <= 5 && !BestMatch.IsEmpty())
+    {
+        return FString::Printf(TEXT("Did you mean '%s'?"), *BestMatch);
+    }
+    return TEXT("");
+}
+
+int32 UUnrealMCPBridge::LevenshteinDistance(const FString& A, const FString& B) const
+{
+    const int32 LenA = A.Len();
+    const int32 LenB = B.Len();
+
+    if (LenA == 0) return LenB;
+    if (LenB == 0) return LenA;
+
+    TArray<int32> PrevRow, CurrRow;
+    PrevRow.SetNum(LenB + 1);
+    CurrRow.SetNum(LenB + 1);
+
+    for (int32 j = 0; j <= LenB; ++j)
+    {
+        PrevRow[j] = j;
+    }
+
+    for (int32 i = 1; i <= LenA; ++i)
+    {
+        CurrRow[0] = i;
+        for (int32 j = 1; j <= LenB; ++j)
+        {
+            int32 Cost = (A[i - 1] == B[j - 1]) ? 0 : 1;
+            CurrRow[j] = FMath::Min3(
+                PrevRow[j] + 1,      // deletion
+                CurrRow[j - 1] + 1,  // insertion
+                PrevRow[j - 1] + Cost // substitution
+            );
+        }
+        Swap(PrevRow, CurrRow);
+    }
+
+    return PrevRow[LenB];
+}
+
 // Execute a command received from a client
 FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& Params)
 {
@@ -230,104 +418,62 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
         {
             TSharedPtr<FJsonObject> ResultJson;
             
+            // Use the self-registering command map for dispatch (Proposal #1)
+            const FString Category = GetCommandCategory(CommandType);
+            
             if (CommandType == TEXT("ping"))
             {
                 ResultJson = MakeShareable(new FJsonObject);
                 ResultJson->SetStringField(TEXT("message"), TEXT("pong"));
             }
-            // Editor Commands (including actor manipulation)
-            else if (CommandType == TEXT("get_actors_in_level") || 
-                     CommandType == TEXT("find_actors_by_name") ||
-                     CommandType == TEXT("spawn_actor") ||
-                     CommandType == TEXT("create_actor") ||
-                     CommandType == TEXT("delete_actor") || 
-                     CommandType == TEXT("set_actor_transform") ||
-                     CommandType == TEXT("get_actor_properties") ||
-                     CommandType == TEXT("set_actor_property") ||
-                     CommandType == TEXT("spawn_blueprint_actor") ||
-                     CommandType == TEXT("focus_viewport") || 
-                     CommandType == TEXT("take_screenshot"))
+            else if (Category == TEXT("editor"))
             {
                 ResultJson = EditorCommands->HandleCommand(CommandType, Params);
             }
-            // Blueprint Commands
-            else if (CommandType == TEXT("create_blueprint") || 
-                     CommandType == TEXT("add_component_to_blueprint") || 
-                     CommandType == TEXT("set_component_property") || 
-                     CommandType == TEXT("set_physics_properties") || 
-                     CommandType == TEXT("compile_blueprint") || 
-                     CommandType == TEXT("set_blueprint_property") || 
-                     CommandType == TEXT("set_static_mesh_properties") ||
-                     CommandType == TEXT("set_pawn_properties"))
+            else if (Category == TEXT("blueprint"))
             {
                 ResultJson = BlueprintCommands->HandleCommand(CommandType, Params);
             }
-            // Blueprint Node Commands
-            else if (CommandType == TEXT("connect_blueprint_nodes") || 
-                     CommandType == TEXT("add_blueprint_get_self_component_reference") ||
-                     CommandType == TEXT("add_blueprint_self_reference") ||
-                     CommandType == TEXT("find_blueprint_nodes") ||
-                     CommandType == TEXT("add_blueprint_event_node") ||
-                     CommandType == TEXT("add_blueprint_input_action_node") ||
-                     CommandType == TEXT("add_blueprint_function_node") ||
-                     CommandType == TEXT("add_blueprint_variable"))
+            else if (Category == TEXT("blueprint_node"))
             {
                 ResultJson = BlueprintNodeCommands->HandleCommand(CommandType, Params);
             }
-            // Project Commands
-            else if (CommandType == TEXT("create_input_mapping"))
+            else if (Category == TEXT("project"))
             {
                 ResultJson = ProjectCommands->HandleCommand(CommandType, Params);
             }
-            // UMG Commands
-            else if (CommandType == TEXT("create_umg_widget_blueprint") ||
-                     CommandType == TEXT("add_text_block_to_widget") ||
-                     CommandType == TEXT("add_button_to_widget") ||
-                     CommandType == TEXT("bind_widget_event") ||
-                     CommandType == TEXT("set_text_block_binding") ||
-                     CommandType == TEXT("add_widget_to_viewport"))
+            else if (Category == TEXT("umg"))
             {
                 ResultJson = UMGCommands->HandleCommand(CommandType, Params);
             }
-            // System Commands (Python passthrough, console commands, reflection)
-            else if (CommandType == TEXT("execute_python") ||
-                     CommandType == TEXT("execute_console_command") ||
-                     CommandType == TEXT("get_class_info") ||
-                     CommandType == TEXT("list_assets"))
+            else if (Category == TEXT("system"))
             {
                 ResultJson = SystemCommands->HandleCommand(CommandType, Params);
             }
-            // Level / World Commands
-            else if (CommandType == TEXT("open_level") ||
-                     CommandType == TEXT("save_current_level") ||
-                     CommandType == TEXT("save_all") ||
-                     CommandType == TEXT("new_level") ||
-                     CommandType == TEXT("get_current_level"))
+            else if (Category == TEXT("level"))
             {
                 ResultJson = LevelCommands->HandleCommand(CommandType, Params);
             }
-            // Asset Commands
-            else if (CommandType == TEXT("import_asset") ||
-                     CommandType == TEXT("duplicate_asset") ||
-                     CommandType == TEXT("rename_asset") ||
-                     CommandType == TEXT("delete_asset") ||
-                     CommandType == TEXT("save_asset") ||
-                     CommandType == TEXT("create_folder"))
+            else if (Category == TEXT("asset"))
             {
                 ResultJson = AssetCommands->HandleCommand(CommandType, Params);
             }
-            // Material Commands
-            else if (CommandType == TEXT("create_material") ||
-                     CommandType == TEXT("create_material_instance") ||
-                     CommandType == TEXT("set_material_parameter") ||
-                     CommandType == TEXT("assign_material"))
+            else if (Category == TEXT("material"))
             {
                 ResultJson = MaterialCommands->HandleCommand(CommandType, Params);
             }
             else
             {
+                // Unknown command - provide suggestions (Proposal #7)
+                FString Suggestion = SuggestCommand(CommandType);
+                FString ErrorMsg = FString::Printf(TEXT("Unknown command: %s"), *CommandType);
+                if (!Suggestion.IsEmpty())
+                {
+                    ErrorMsg += TEXT(" ") + Suggestion;
+                }
+                
                 ResponseJson->SetStringField(TEXT("status"), TEXT("error"));
-                ResponseJson->SetStringField(TEXT("error"), FString::Printf(TEXT("Unknown command: %s"), *CommandType));
+                ResponseJson->SetStringField(TEXT("error"), ErrorMsg);
                 
                 FString ResultString;
                 TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultString);

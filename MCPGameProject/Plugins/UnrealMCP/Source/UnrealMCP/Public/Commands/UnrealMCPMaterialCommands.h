@@ -1,25 +1,28 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Json.h"
+#include "Dom/JsonObject.h"
 
 /**
- * Handler class for material MCP commands:
- *   - create_material           : create a new UMaterial asset
- *   - create_material_instance  : create a UMaterialInstanceConstant from a parent material
- *   - set_material_parameter    : set a scalar/vector parameter on a material instance
- *   - assign_material           : assign a material to a level actor's mesh component slot
+ * Material command handlers for MCP
+ * v2.0 - Added color convenience, multi-slot assignment, and material query
  */
-class UNREALMCP_API FUnrealMCPMaterialCommands
+class FUnrealMCPMaterialCommands
 {
 public:
     FUnrealMCPMaterialCommands();
-
+    
     TSharedPtr<FJsonObject> HandleCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& Params);
 
 private:
+    // Core material commands
     TSharedPtr<FJsonObject> HandleCreateMaterial(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleCreateMaterialInstance(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleSetMaterialParameter(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleAssignMaterial(const TSharedPtr<FJsonObject>& Params);
+    
+    // NEW: Convenience commands (Proposal #3)
+    TSharedPtr<FJsonObject> HandleSetMaterialColor(const TSharedPtr<FJsonObject>& Params);
+    TSharedPtr<FJsonObject> HandleGetMaterialInfo(const TSharedPtr<FJsonObject>& Params);
+    TSharedPtr<FJsonObject> HandleAssignMaterialToAllSlots(const TSharedPtr<FJsonObject>& Params);
 };

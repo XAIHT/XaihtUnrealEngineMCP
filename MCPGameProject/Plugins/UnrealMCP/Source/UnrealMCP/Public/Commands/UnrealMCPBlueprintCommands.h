@@ -1,21 +1,21 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Json.h"
+#include "Dom/JsonObject.h"
 
 /**
- * Handler class for Blueprint-related MCP commands
+ * Blueprint command handlers for MCP
+ * v2.0 - Added save_blueprint, is_blueprint_dirty, and auto-save support
  */
-class UNREALMCP_API FUnrealMCPBlueprintCommands
+class FUnrealMCPBlueprintCommands
 {
 public:
     FUnrealMCPBlueprintCommands();
-
-    // Handle blueprint commands
+    
     TSharedPtr<FJsonObject> HandleCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& Params);
 
 private:
-    // Specific blueprint command handlers
+    // Core blueprint commands
     TSharedPtr<FJsonObject> HandleCreateBlueprint(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleAddComponentToBlueprint(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleSetComponentProperty(const TSharedPtr<FJsonObject>& Params);
@@ -25,10 +25,8 @@ private:
     TSharedPtr<FJsonObject> HandleSetBlueprintProperty(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleSetStaticMeshProperties(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleSetPawnProperties(const TSharedPtr<FJsonObject>& Params);
-
-    // Helper functions
-    TSharedPtr<FJsonObject> AddComponentToBlueprint(const FString& BlueprintName, const FString& ComponentType, 
-                                                   const FString& ComponentName, const FString& MeshType,
-                                                   const TArray<float>& Location, const TArray<float>& Rotation,
-                                                   const TArray<float>& Scale, const TSharedPtr<FJsonObject>& ComponentProperties);
-}; 
+    
+    // NEW: Persistence commands (Proposal #5)
+    TSharedPtr<FJsonObject> HandleSaveBlueprint(const TSharedPtr<FJsonObject>& Params);
+    TSharedPtr<FJsonObject> HandleIsBlueprintDirty(const TSharedPtr<FJsonObject>& Params);
+};

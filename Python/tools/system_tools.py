@@ -4,9 +4,11 @@ System Tools for Unreal MCP.
 This module provides "escape hatch" and introspection tools that let an AI client
 reach engine functionality not yet covered by a dedicated tool:
   - execute_python           : run a Python script inside the editor
+  - execute_python_file      : run a Python script from a file path
   - execute_console_command  : run an editor console / CVar command
   - get_class_info           : reflect a UClass (parent, properties, functions)
   - list_assets              : enumerate assets under a content path
+  - get_supported_commands   : list all commands the C++ bridge supports
   - call_unreal              : generic passthrough to any registered C++ command
 """
 
@@ -59,6 +61,43 @@ def register_system_tools(mcp: FastMCP):
 
         except Exception as e:
             error_msg = f"Error executing python: {e}"
+            logger.error(error_msg)
+            return {"success": False, "message": error_msg}
+
+    @mcp.tool()
+    def execute_python_file(ctx: Context, file_path: str) -> Dict[str, Any]:
+        """
+        Execute a Python script file inside the Unreal Editor.
+
+        The file path is resolved relative to the project directory if it is not
+        absolute. Requires the "Python Editor Script Plugin" to be enabled.
+
+        Args:
+            file_path: Path to the .py file. Relative paths are resolved against
+                       the project directory.
+
+        Returns:
+            Dict with `success`, `file`, `result`, and `log` entries.
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                logger.error("Failed to connect to Unreal Engine")
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("execute_python_file", {"file_path": file_path})
+
+            if not response:
+                logger.error("No response from Unreal Engine")
+                return {"success": False, "message": "No response from Unreal Engine"}
+
+            logger.info(f"Execute python file response: {response}")
+            return response
+
+        except Exception as e:
+            error_msg = f"Error executing python file: {e}"
             logger.error(error_msg)
             return {"success": False, "message": error_msg}
 
@@ -171,6 +210,40 @@ def register_system_tools(mcp: FastMCP):
 
         except Exception as e:
             error_msg = f"Error listing assets: {e}"
+            logger.error(error_msg)
+            return {"success": False, "message": error_msg}
+
+    @mcp.tool()
+    def get_supported_commands(ctx: Context) -> Dict[str, Any]:
+        """
+        Return the full list of commands supported by the C++ bridge.
+
+        This is the canonical way to discover what the connected Unreal Editor
+        can do. The list is sorted alphabetically and includes the category
+        each command belongs to.
+
+        Returns:
+            Dict with `commands` (list of {name, category}) and `count`.
+        """
+        from unreal_mcp_server import get_unreal_connection
+
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                logger.error("Failed to connect to Unreal Engine")
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+
+            response = unreal.send_command("get_supported_commands", {})
+
+            if not response:
+                logger.error("No response from Unreal Engine")
+                return {"success": False, "message": "No response from Unreal Engine"}
+
+            logger.info(f"Get supported commands response: {response}")
+            return response
+
+        except Exception as e:
+            error_msg = f"Error getting supported commands: {e}"
             logger.error(error_msg)
             return {"success": False, "message": error_msg}
 

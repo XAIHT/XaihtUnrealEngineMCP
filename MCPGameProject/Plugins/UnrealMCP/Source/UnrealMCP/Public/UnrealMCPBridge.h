@@ -26,6 +26,9 @@ class FMCPServerRunnable;
  * Handles communication between external tools and the Unreal Editor
  * through a TCP socket connection. Commands are received as JSON and
  * routed to appropriate command handlers.
+ * 
+ * v2.0 - Self-registering command map with runtime validation,
+ *        command suggestions, and comprehensive error reporting.
  */
 UCLASS()
 class UNREALMCP_API UUnrealMCPBridge : public UEditorSubsystem
@@ -48,6 +51,10 @@ public:
 	// Command execution
 	FString ExecuteCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& Params);
 
+	// Runtime command discovery (Proposal #2)
+	TArray<FString> GetSupportedCommands() const;
+	FString GetCommandCategory(const FString& CommandType) const;
+
 private:
 	// Server state
 	bool bIsRunning;
@@ -69,4 +76,13 @@ private:
 	TSharedPtr<FUnrealMCPLevelCommands> LevelCommands;
 	TSharedPtr<FUnrealMCPAssetCommands> AssetCommands;
 	TSharedPtr<FUnrealMCPMaterialCommands> MaterialCommands;
+
+	// Self-registering command map (Proposal #1)
+	TMap<FString, FString> CommandToCategoryMap;
+	TSet<FString> SupportedCommands;
+	void BuildCommandRegistry();
+
+	// Command suggestion engine (Proposal #7)
+	FString SuggestCommand(const FString& UnknownCommand) const;
+	int32 LevenshteinDistance(const FString& A, const FString& B) const;
 };

@@ -9,6 +9,8 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "AssetRegistry/AssetData.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 
 FUnrealMCPSystemCommands::FUnrealMCPSystemCommands()
 {
@@ -19,6 +21,10 @@ TSharedPtr<FJsonObject> FUnrealMCPSystemCommands::HandleCommand(const FString& C
     if (CommandType == TEXT("execute_python"))
     {
         return HandleExecutePython(Params);
+    }
+    else if (CommandType == TEXT("execute_python_file"))
+    {
+        return HandleExecutePythonFile(Params);
     }
     else if (CommandType == TEXT("execute_console_command"))
     {
@@ -72,6 +78,68 @@ TSharedPtr<FJsonObject> FUnrealMCPSystemCommands::HandleExecutePython(const TSha
 
     TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
     ResultObj->SetBoolField(TEXT("success"), bExecOk);
+    ResultObj->SetStringField(TEXT("result"), PythonCommand.CommandResult);
+    ResultObj->SetArrayField(TEXT("log"), LogEntries);
+    if (!bExecOk)
+    {
+        ResultObj->SetStringField(TEXT("error"), TEXT("Python execution reported errors; see 'log' for details."));
+    }
+    return ResultObj;
+}
+
+// NEW: Execute Python from a file path (Proposal #6)
+TSharedPtr<FJsonObject> FUnrealMCPSystemCommands::HandleExecutePythonFile(const TSharedPtr<FJsonObject>& Params)
+{
+    FString FilePath;
+    if (!Params->TryGetStringField(TEXT("file_path"), FilePath))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'file_path' parameter"));
+    }
+
+    // Resolve relative paths against project directory
+    if (FPaths::IsRelative(FilePath))
+    {
+        FilePath = FPaths::ProjectDir() / FilePath;
+    }
+    FPaths::NormalizeFilename(FilePath);
+
+    if (!FPaths::FileExists(FilePath))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Python file not found: %s"), *FilePath));
+    }
+
+    FString Code;
+    if (!FFileHelper::LoadFileToString(Code, *FilePath))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Failed to read Python file: %s"), *FilePath));
+    }
+
+    IPythonScriptPlugin* PythonPlugin = IPythonScriptPlugin::Get();
+    if (!PythonPlugin || !PythonPlugin->IsPythonAvailable())
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(
+            TEXT("Python scripting is not available. Enable the 'Python Editor Script Plugin' for this project."));
+    }
+
+    FPythonCommandEx PythonCommand;
+    PythonCommand.Command = Code;
+    PythonCommand.ExecutionMode = EPythonCommandExecutionMode::ExecuteFile;
+    PythonCommand.Flags = EPythonCommandFlags::Unattended;
+
+    const bool bExecOk = PythonPlugin->ExecPythonCommandEx(PythonCommand);
+
+    TArray<TSharedPtr<FJsonValue>> LogEntries;
+    for (const FPythonLogOutputEntry& Entry : PythonCommand.LogOutput)
+    {
+        TSharedPtr<FJsonObject> EntryObj = MakeShared<FJsonObject>();
+        EntryObj->SetStringField(TEXT("type"), Entry.Type == EPythonLogOutputType::Error ? TEXT("error") : TEXT("info"));
+        EntryObj->SetStringField(TEXT("output"), Entry.Output);
+        LogEntries.Add(MakeShared<FJsonValueObject>(EntryObj));
+    }
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetBoolField(TEXT("success"), bExecOk);
+    ResultObj->SetStringField(TEXT("file"), FilePath);
     ResultObj->SetStringField(TEXT("result"), PythonCommand.CommandResult);
     ResultObj->SetArrayField(TEXT("log"), LogEntries);
     if (!bExecOk)

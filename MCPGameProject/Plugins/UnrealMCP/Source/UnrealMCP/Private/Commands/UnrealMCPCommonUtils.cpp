@@ -179,7 +179,7 @@ UEdGraph* FUnrealMCPCommonUtils::FindOrCreateEventGraph(UBlueprint* Blueprint)
     return NewGraph;
 }
 
-// Blueprint node utilities
+// Blueprint node utilities - FIXED class hierarchy search (Proposal #4)
 UK2Node_Event* FUnrealMCPCommonUtils::CreateEventNode(UEdGraph* Graph, const FString& EventName, const FVector2D& Position)
 {
     if (!Graph)
@@ -208,25 +208,50 @@ UK2Node_Event* FUnrealMCPCommonUtils::CreateEventNode(UEdGraph* Graph, const FSt
     // No existing node found, create a new one
     UK2Node_Event* EventNode = nullptr;
     
-    // Find the function to create the event
-    UClass* BlueprintClass = Blueprint->GeneratedClass;
-    UFunction* EventFunction = BlueprintClass->FindFunctionByName(FName(*EventName));
+    // FIXED: Search the FULL class hierarchy for the event function (Proposal #4)
+    // This handles inherited events like ReceiveBeginPlay, ReceiveTick, etc.
+    UClass* SearchClass = Blueprint->GeneratedClass;
+    UFunction* EventFunction = nullptr;
+    
+    while (SearchClass && !EventFunction)
+    {
+        EventFunction = SearchClass->FindFunctionByName(FName(*EventName));
+        if (!EventFunction)
+        {
+            SearchClass = SearchClass->GetSuperClass();
+        }
+    }
+    
+    // If still not found, try the parent class of the blueprint
+    if (!EventFunction && Blueprint->ParentClass)
+    {
+        SearchClass = Blueprint->ParentClass;
+        while (SearchClass && !EventFunction)
+        {
+            EventFunction = SearchClass->FindFunctionByName(FName(*EventName));
+            if (!EventFunction)
+            {
+                SearchClass = SearchClass->GetSuperClass();
+            }
+        }
+    }
     
     if (EventFunction)
     {
         EventNode = NewObject<UK2Node_Event>(Graph);
-        EventNode->EventReference.SetExternalMember(FName(*EventName), BlueprintClass);
+        EventNode->EventReference.SetExternalMember(FName(*EventName), EventFunction->GetOwnerClass());
         EventNode->NodePosX = Position.X;
         EventNode->NodePosY = Position.Y;
         Graph->AddNode(EventNode, true);
         EventNode->PostPlacedNewNode();
         EventNode->AllocateDefaultPins();
-        UE_LOG(LogTemp, Display, TEXT("Created new event node with name %s (ID: %s)"), 
-            *EventName, *EventNode->NodeGuid.ToString());
+        UE_LOG(LogTemp, Display, TEXT("Created new event node with name %s (ID: %s) on class %s"), 
+            *EventName, *EventNode->NodeGuid.ToString(), *EventFunction->GetOwnerClass()->GetName());
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to find function for event name: %s"), *EventName);
+        UE_LOG(LogTemp, Error, TEXT("Failed to find function for event name: %s in blueprint %s or its parent classes"), 
+            *EventName, *Blueprint->GetName());
     }
     
     return EventNode;
@@ -375,335 +400,4 @@ UEdGraphPin* FUnrealMCPCommonUtils::FindPin(UEdGraphNode* Node, const FString& P
     
     for (UEdGraphPin* Pin : Node->Pins)
     {
-        UE_LOG(LogTemp, Display, TEXT("  - Available pin: '%s', Direction: %d, Category: %s"), 
-               *Pin->PinName.ToString(), (int32)Pin->Direction, *Pin->PinType.PinCategory.ToString());
-    }
-    
-    // First try exact match
-    for (UEdGraphPin* Pin : Node->Pins)
-    {
-        if (Pin->PinName.ToString() == PinName && (Direction == EGPD_MAX || Pin->Direction == Direction))
-        {
-            UE_LOG(LogTemp, Display, TEXT("  - Found exact matching pin: '%s'"), *Pin->PinName.ToString());
-            return Pin;
-        }
-    }
-    
-    // If no exact match and we're looking for a component reference, try case-insensitive match
-    for (UEdGraphPin* Pin : Node->Pins)
-    {
-        if (Pin->PinName.ToString().Equals(PinName, ESearchCase::IgnoreCase) && 
-            (Direction == EGPD_MAX || Pin->Direction == Direction))
-        {
-            UE_LOG(LogTemp, Display, TEXT("  - Found case-insensitive matching pin: '%s'"), *Pin->PinName.ToString());
-            return Pin;
-        }
-    }
-    
-    // If we're looking for a component output and didn't find it by name, try to find the first data output pin
-    if (Direction == EGPD_Output && Cast<UK2Node_VariableGet>(Node) != nullptr)
-    {
-        for (UEdGraphPin* Pin : Node->Pins)
-        {
-            if (Pin->Direction == EGPD_Output && Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec)
-            {
-                UE_LOG(LogTemp, Display, TEXT("  - Found fallback data output pin: '%s'"), *Pin->PinName.ToString());
-                return Pin;
-            }
-        }
-    }
-    
-    UE_LOG(LogTemp, Warning, TEXT("  - No matching pin found for '%s'"), *PinName);
-    return nullptr;
-}
-
-// Actor utilities
-TSharedPtr<FJsonValue> FUnrealMCPCommonUtils::ActorToJson(AActor* Actor)
-{
-    if (!Actor)
-    {
-        return MakeShared<FJsonValueNull>();
-    }
-    
-    TSharedPtr<FJsonObject> ActorObject = MakeShared<FJsonObject>();
-    ActorObject->SetStringField(TEXT("name"), Actor->GetName());
-    ActorObject->SetStringField(TEXT("class"), Actor->GetClass()->GetName());
-    
-    FVector Location = Actor->GetActorLocation();
-    TArray<TSharedPtr<FJsonValue>> LocationArray;
-    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.X));
-    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.Y));
-    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.Z));
-    ActorObject->SetArrayField(TEXT("location"), LocationArray);
-    
-    FRotator Rotation = Actor->GetActorRotation();
-    TArray<TSharedPtr<FJsonValue>> RotationArray;
-    RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Pitch));
-    RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Yaw));
-    RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Roll));
-    ActorObject->SetArrayField(TEXT("rotation"), RotationArray);
-    
-    FVector Scale = Actor->GetActorScale3D();
-    TArray<TSharedPtr<FJsonValue>> ScaleArray;
-    ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.X));
-    ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.Y));
-    ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.Z));
-    ActorObject->SetArrayField(TEXT("scale"), ScaleArray);
-    
-    return MakeShared<FJsonValueObject>(ActorObject);
-}
-
-TSharedPtr<FJsonObject> FUnrealMCPCommonUtils::ActorToJsonObject(AActor* Actor, bool bDetailed)
-{
-    if (!Actor)
-    {
-        return nullptr;
-    }
-    
-    TSharedPtr<FJsonObject> ActorObject = MakeShared<FJsonObject>();
-    ActorObject->SetStringField(TEXT("name"), Actor->GetName());
-    ActorObject->SetStringField(TEXT("class"), Actor->GetClass()->GetName());
-    
-    FVector Location = Actor->GetActorLocation();
-    TArray<TSharedPtr<FJsonValue>> LocationArray;
-    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.X));
-    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.Y));
-    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.Z));
-    ActorObject->SetArrayField(TEXT("location"), LocationArray);
-    
-    FRotator Rotation = Actor->GetActorRotation();
-    TArray<TSharedPtr<FJsonValue>> RotationArray;
-    RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Pitch));
-    RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Yaw));
-    RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Roll));
-    ActorObject->SetArrayField(TEXT("rotation"), RotationArray);
-    
-    FVector Scale = Actor->GetActorScale3D();
-    TArray<TSharedPtr<FJsonValue>> ScaleArray;
-    ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.X));
-    ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.Y));
-    ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.Z));
-    ActorObject->SetArrayField(TEXT("scale"), ScaleArray);
-    
-    return ActorObject;
-}
-
-UK2Node_Event* FUnrealMCPCommonUtils::FindExistingEventNode(UEdGraph* Graph, const FString& EventName)
-{
-    if (!Graph)
-    {
-        return nullptr;
-    }
-
-    // Look for existing event nodes
-    for (UEdGraphNode* Node : Graph->Nodes)
-    {
-        UK2Node_Event* EventNode = Cast<UK2Node_Event>(Node);
-        if (EventNode && EventNode->EventReference.GetMemberName() == FName(*EventName))
-        {
-            UE_LOG(LogTemp, Display, TEXT("Found existing event node with name: %s"), *EventName);
-            return EventNode;
-        }
-    }
-
-    return nullptr;
-}
-
-bool FUnrealMCPCommonUtils::SetObjectProperty(UObject* Object, const FString& PropertyName, 
-                                     const TSharedPtr<FJsonValue>& Value, FString& OutErrorMessage)
-{
-    if (!Object)
-    {
-        OutErrorMessage = TEXT("Invalid object");
-        return false;
-    }
-
-    FProperty* Property = Object->GetClass()->FindPropertyByName(*PropertyName);
-    if (!Property)
-    {
-        OutErrorMessage = FString::Printf(TEXT("Property not found: %s"), *PropertyName);
-        return false;
-    }
-
-    void* PropertyAddr = Property->ContainerPtrToValuePtr<void>(Object);
-    
-    // Handle different property types
-    if (Property->IsA<FBoolProperty>())
-    {
-        ((FBoolProperty*)Property)->SetPropertyValue(PropertyAddr, Value->AsBool());
-        return true;
-    }
-    else if (Property->IsA<FIntProperty>())
-    {
-        int32 IntValue = static_cast<int32>(Value->AsNumber());
-        FIntProperty* IntProperty = CastField<FIntProperty>(Property);
-        if (IntProperty)
-        {
-            IntProperty->SetPropertyValue_InContainer(Object, IntValue);
-            return true;
-        }
-    }
-    else if (Property->IsA<FFloatProperty>())
-    {
-        ((FFloatProperty*)Property)->SetPropertyValue(PropertyAddr, Value->AsNumber());
-        return true;
-    }
-    else if (Property->IsA<FStrProperty>())
-    {
-        ((FStrProperty*)Property)->SetPropertyValue(PropertyAddr, Value->AsString());
-        return true;
-    }
-    else if (Property->IsA<FByteProperty>())
-    {
-        FByteProperty* ByteProp = CastField<FByteProperty>(Property);
-        UEnum* EnumDef = ByteProp ? ByteProp->GetIntPropertyEnum() : nullptr;
-        
-        // If this is a TEnumAsByte property (has associated enum)
-        if (EnumDef)
-        {
-            // Handle numeric value
-            if (Value->Type == EJson::Number)
-            {
-                uint8 ByteValue = static_cast<uint8>(Value->AsNumber());
-                ByteProp->SetPropertyValue(PropertyAddr, ByteValue);
-                
-                UE_LOG(LogTemp, Display, TEXT("Setting enum property %s to numeric value: %d"), 
-                      *PropertyName, ByteValue);
-                return true;
-            }
-            // Handle string enum value
-            else if (Value->Type == EJson::String)
-            {
-                FString EnumValueName = Value->AsString();
-                
-                // Try to convert numeric string to number first
-                if (EnumValueName.IsNumeric())
-                {
-                    uint8 ByteValue = FCString::Atoi(*EnumValueName);
-                    ByteProp->SetPropertyValue(PropertyAddr, ByteValue);
-                    
-                    UE_LOG(LogTemp, Display, TEXT("Setting enum property %s to numeric string value: %s -> %d"), 
-                          *PropertyName, *EnumValueName, ByteValue);
-                    return true;
-                }
-                
-                // Handle qualified enum names (e.g., "Player0" or "EAutoReceiveInput::Player0")
-                if (EnumValueName.Contains(TEXT("::")))
-                {
-                    EnumValueName.Split(TEXT("::"), nullptr, &EnumValueName);
-                }
-                
-                int64 EnumValue = EnumDef->GetValueByNameString(EnumValueName);
-                if (EnumValue == INDEX_NONE)
-                {
-                    // Try with full name as fallback
-                    EnumValue = EnumDef->GetValueByNameString(Value->AsString());
-                }
-                
-                if (EnumValue != INDEX_NONE)
-                {
-                    ByteProp->SetPropertyValue(PropertyAddr, static_cast<uint8>(EnumValue));
-                    
-                    UE_LOG(LogTemp, Display, TEXT("Setting enum property %s to name value: %s -> %lld"), 
-                          *PropertyName, *EnumValueName, EnumValue);
-                    return true;
-                }
-                else
-                {
-                    // Log all possible enum values for debugging
-                    UE_LOG(LogTemp, Warning, TEXT("Could not find enum value for '%s'. Available options:"), *EnumValueName);
-                    for (int32 i = 0; i < EnumDef->NumEnums(); i++)
-                    {
-                        UE_LOG(LogTemp, Warning, TEXT("  - %s (value: %d)"), 
-                               *EnumDef->GetNameStringByIndex(i), EnumDef->GetValueByIndex(i));
-                    }
-                    
-                    OutErrorMessage = FString::Printf(TEXT("Could not find enum value for '%s'"), *EnumValueName);
-                    return false;
-                }
-            }
-        }
-        else
-        {
-            // Regular byte property
-            uint8 ByteValue = static_cast<uint8>(Value->AsNumber());
-            ByteProp->SetPropertyValue(PropertyAddr, ByteValue);
-            return true;
-        }
-    }
-    else if (Property->IsA<FEnumProperty>())
-    {
-        FEnumProperty* EnumProp = CastField<FEnumProperty>(Property);
-        UEnum* EnumDef = EnumProp ? EnumProp->GetEnum() : nullptr;
-        FNumericProperty* UnderlyingNumericProp = EnumProp ? EnumProp->GetUnderlyingProperty() : nullptr;
-        
-        if (EnumDef && UnderlyingNumericProp)
-        {
-            // Handle numeric value
-            if (Value->Type == EJson::Number)
-            {
-                int64 EnumValue = static_cast<int64>(Value->AsNumber());
-                UnderlyingNumericProp->SetIntPropertyValue(PropertyAddr, EnumValue);
-                
-                UE_LOG(LogTemp, Display, TEXT("Setting enum property %s to numeric value: %lld"), 
-                      *PropertyName, EnumValue);
-                return true;
-            }
-            // Handle string enum value
-            else if (Value->Type == EJson::String)
-            {
-                FString EnumValueName = Value->AsString();
-                
-                // Try to convert numeric string to number first
-                if (EnumValueName.IsNumeric())
-                {
-                    int64 EnumValue = FCString::Atoi64(*EnumValueName);
-                    UnderlyingNumericProp->SetIntPropertyValue(PropertyAddr, EnumValue);
-                    
-                    UE_LOG(LogTemp, Display, TEXT("Setting enum property %s to numeric string value: %s -> %lld"), 
-                          *PropertyName, *EnumValueName, EnumValue);
-                    return true;
-                }
-                
-                // Handle qualified enum names
-                if (EnumValueName.Contains(TEXT("::")))
-                {
-                    EnumValueName.Split(TEXT("::"), nullptr, &EnumValueName);
-                }
-                
-                int64 EnumValue = EnumDef->GetValueByNameString(EnumValueName);
-                if (EnumValue == INDEX_NONE)
-                {
-                    // Try with full name as fallback
-                    EnumValue = EnumDef->GetValueByNameString(Value->AsString());
-                }
-                
-                if (EnumValue != INDEX_NONE)
-                {
-                    UnderlyingNumericProp->SetIntPropertyValue(PropertyAddr, EnumValue);
-                    
-                    UE_LOG(LogTemp, Display, TEXT("Setting enum property %s to name value: %s -> %lld"), 
-                          *PropertyName, *EnumValueName, EnumValue);
-                    return true;
-                }
-                else
-                {
-                    // Log all possible enum values for debugging
-                    UE_LOG(LogTemp, Warning, TEXT("Could not find enum value for '%s'. Available options:"), *EnumValueName);
-                    for (int32 i = 0; i < EnumDef->NumEnums(); i++)
-                    {
-                        UE_LOG(LogTemp, Warning, TEXT("  - %s (value: %d)"), 
-                               *EnumDef->GetNameStringByIndex(i), EnumDef->GetValueByIndex(i));
-                    }
-                    
-                    OutErrorMessage = FString::Printf(TEXT("Could not find enum value for '%s'"), *EnumValueName);
-                    return false;
-                }
-            }
-        }
-    }
-    
-    OutErrorMessage = FString::Printf(TEXT("Unsupported property type: %s for property %s"), 
-                                    *Property->GetClass()->GetName(), *PropertyName);
-    return false;
-} 
+        UE_LOG(LogTemp, Display, TEXT("  - Available pin: '%s

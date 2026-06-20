@@ -2,6 +2,7 @@
 Blueprint Tools for Unreal MCP.
 
 This module provides tools for creating and manipulating Blueprint assets in Unreal Engine.
+v2.0 - Added save_blueprint and is_blueprint_dirty tools
 """
 
 import logging
@@ -416,5 +417,77 @@ def register_blueprint_tools(mcp: FastMCP):
             error_msg = f"Error setting pawn properties: {e}"
             logger.error(error_msg)
             return {"success": False, "message": error_msg}
+
+    @mcp.tool()
+    def save_blueprint(
+        ctx: Context,
+        blueprint_name: str
+    ) -> Dict[str, Any]:
+        """
+        Save a Blueprint asset to disk.
+
+        Args:
+            blueprint_name: Name of the Blueprint to save.
+
+        Returns:
+            Dict with `saved` (bool) and `path`.
+        """
+        from unreal_mcp_server import get_unreal_connection
+        
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                logger.error("Failed to connect to Unreal Engine")
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+            
+            response = unreal.send_command("save_blueprint", {"blueprint_name": blueprint_name})
+            
+            if not response:
+                logger.error("No response from Unreal Engine")
+                return {"success": False, "message": "No response from Unreal Engine"}
+            
+            logger.info(f"Save blueprint response: {response}")
+            return response
+            
+        except Exception as e:
+            error_msg = f"Error saving blueprint: {e}"
+            logger.error(error_msg)
+            return {"success": False, "message": error_msg}
+
+    @mcp.tool()
+    def is_blueprint_dirty(
+        ctx: Context,
+        blueprint_name: str
+    ) -> Dict[str, Any]:
+        """
+        Check whether a Blueprint has unsaved changes.
+
+        Args:
+            blueprint_name: Name of the Blueprint to check.
+
+        Returns:
+            Dict with `dirty` (bool).
+        """
+        from unreal_mcp_server import get_unreal_connection
+        
+        try:
+            unreal = get_unreal_connection()
+            if not unreal:
+                logger.error("Failed to connect to Unreal Engine")
+                return {"success": False, "message": "Failed to connect to Unreal Engine"}
+            
+            response = unreal.send_command("is_blueprint_dirty", {"blueprint_name": blueprint_name})
+            
+            if not response:
+                logger.error("No response from Unreal Engine")
+                return {"success": False, "message": "No response from Unreal Engine"}
+            
+            logger.info(f"Is blueprint dirty response: {response}")
+            return response
+            
+        except Exception as e:
+            error_msg = f"Error checking blueprint dirty state: {e}"
+            logger.error(error_msg)
+            return {"success": False, "message": error_msg}
     
-    logger.info("Blueprint tools registered successfully") 
+    logger.info("Blueprint tools registered successfully")

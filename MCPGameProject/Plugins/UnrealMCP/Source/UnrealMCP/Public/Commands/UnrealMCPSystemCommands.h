@@ -1,29 +1,26 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Json.h"
+#include "Dom/JsonObject.h"
 
 /**
- * Handler class for system-level MCP commands.
- *
- * These are "escape hatch" and introspection commands that let an AI client
- * reach engine functionality not yet covered by a dedicated command:
- *   - execute_python           : run a Python script inside the editor
- *   - execute_console_command  : run an editor console / CVar command
- *   - get_class_info           : reflect a UClass (parent, properties, functions)
- *   - list_assets              : enumerate assets under a content path
+ * System command handlers for MCP
+ * v2.0 - Added execute_python_file, exception tracebacks, and robust error reporting
  */
-class UNREALMCP_API FUnrealMCPSystemCommands
+class FUnrealMCPSystemCommands
 {
 public:
     FUnrealMCPSystemCommands();
-
-    // Handle system commands
+    
     TSharedPtr<FJsonObject> HandleCommand(const FString& CommandType, const TSharedPtr<FJsonObject>& Params);
 
 private:
+    // Core system commands
     TSharedPtr<FJsonObject> HandleExecutePython(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleExecuteConsoleCommand(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleGetClassInfo(const TSharedPtr<FJsonObject>& Params);
     TSharedPtr<FJsonObject> HandleListAssets(const TSharedPtr<FJsonObject>& Params);
+    
+    // NEW: Execute Python from file (Proposal #6)
+    TSharedPtr<FJsonObject> HandleExecutePythonFile(const TSharedPtr<FJsonObject>& Params);
 };

@@ -20,6 +20,7 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
+#include "UObject/SavePackage.h"
 
 FUnrealMCPBlueprintCommands::FUnrealMCPBlueprintCommands()
 {
@@ -62,6 +63,14 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleCommand(const FString
     else if (CommandType == TEXT("set_pawn_properties"))
     {
         return HandleSetPawnProperties(Params);
+    }
+    else if (CommandType == TEXT("save_blueprint"))
+    {
+        return HandleSaveBlueprint(Params);
+    }
+    else if (CommandType == TEXT("is_blueprint_dirty"))
+    {
+        return HandleIsBlueprintDirty(Params);
     }
     
     return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Unknown blueprint command: %s"), *CommandType));
@@ -1157,4 +1166,64 @@ TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleSetPawnProperties(con
     ResponseObj->SetBoolField(TEXT("success"), bAnyPropertiesSet);
     ResponseObj->SetObjectField(TEXT("results"), ResultsObj);
     return ResponseObj;
-} 
+}
+
+// NEW: Save a specific blueprint to disk (Proposal #5)
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleSaveBlueprint(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    UPackage* Package = Blueprint->GetOutermost();
+    if (!Package)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Failed to get blueprint package"));
+    }
+
+    FString PackageFileName = FPackageName::LongPackageNameToFilename(Package->GetName(), FPackageName::GetAssetPackageExtension());
+    
+    FSavePackageArgs SaveArgs;
+    SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+    SaveArgs.Error = GError;
+    
+    bool bSaved = UPackage::SavePackage(Package, nullptr, *PackageFileName, SaveArgs);
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("blueprint"), BlueprintName);
+    ResultObj->SetBoolField(TEXT("saved"), bSaved);
+    ResultObj->SetStringField(TEXT("path"), Package->GetName());
+    return ResultObj;
+}
+
+// NEW: Check if a blueprint has unsaved changes (Proposal #5)
+TSharedPtr<FJsonObject> FUnrealMCPBlueprintCommands::HandleIsBlueprintDirty(const TSharedPtr<FJsonObject>& Params)
+{
+    FString BlueprintName;
+    if (!Params->TryGetStringField(TEXT("blueprint_name"), BlueprintName))
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(TEXT("Missing 'blueprint_name' parameter"));
+    }
+
+    UBlueprint* Blueprint = FUnrealMCPCommonUtils::FindBlueprint(BlueprintName);
+    if (!Blueprint)
+    {
+        return FUnrealMCPCommonUtils::CreateErrorResponse(FString::Printf(TEXT("Blueprint not found: %s"), *BlueprintName));
+    }
+
+    UPackage* Package = Blueprint->GetOutermost();
+    bool bDirty = Package ? Package->IsDirty() : false;
+
+    TSharedPtr<FJsonObject> ResultObj = MakeShared<FJsonObject>();
+    ResultObj->SetStringField(TEXT("blueprint"), BlueprintName);
+    ResultObj->SetBoolField(TEXT("dirty"), bDirty);
+    return ResultObj;
+}
