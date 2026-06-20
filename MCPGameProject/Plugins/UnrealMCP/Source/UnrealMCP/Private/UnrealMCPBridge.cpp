@@ -330,7 +330,11 @@ void UUnrealMCPBridge::BuildCommandRegistry()
 TArray<FString> UUnrealMCPBridge::GetSupportedCommands() const
 {
     TArray<FString> Commands;
-    SupportedCommands.GenerateArray(Commands);
+    Commands.Reserve(SupportedCommands.Num());
+    for (const FString& Command : SupportedCommands)
+    {
+        Commands.Add(Command);
+    }
     Commands.Sort();
     return Commands;
 }

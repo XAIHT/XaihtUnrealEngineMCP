@@ -25,6 +25,7 @@
 #include "BlueprintActionDatabase.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "UObject/UnrealType.h"
 
 // JSON Utilities
 TSharedPtr<FJsonObject> FUnrealMCPCommonUtils::CreateErrorResponse(const FString& Message)
@@ -46,6 +47,52 @@ TSharedPtr<FJsonObject> FUnrealMCPCommonUtils::CreateSuccessResponse(const TShar
     }
     
     return ResponseObject;
+}
+
+TSharedPtr<FJsonValue> FUnrealMCPCommonUtils::ActorToJson(AActor* Actor)
+{
+    return MakeShared<FJsonValueObject>(ActorToJsonObject(Actor));
+}
+
+TSharedPtr<FJsonObject> FUnrealMCPCommonUtils::ActorToJsonObject(AActor* Actor, bool bDetailed)
+{
+    TSharedPtr<FJsonObject> ActorObject = MakeShared<FJsonObject>();
+    if (!Actor)
+    {
+        return ActorObject;
+    }
+
+    ActorObject->SetStringField(TEXT("name"), Actor->GetName());
+#if WITH_EDITOR
+    ActorObject->SetStringField(TEXT("label"), Actor->GetActorLabel());
+#endif
+    ActorObject->SetStringField(TEXT("class"), Actor->GetClass()->GetName());
+
+    const FVector Location = Actor->GetActorLocation();
+    TArray<TSharedPtr<FJsonValue>> LocationArray;
+    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.X));
+    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.Y));
+    LocationArray.Add(MakeShared<FJsonValueNumber>(Location.Z));
+    ActorObject->SetArrayField(TEXT("location"), LocationArray);
+
+    if (bDetailed)
+    {
+        const FRotator Rotation = Actor->GetActorRotation();
+        TArray<TSharedPtr<FJsonValue>> RotationArray;
+        RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Pitch));
+        RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Yaw));
+        RotationArray.Add(MakeShared<FJsonValueNumber>(Rotation.Roll));
+        ActorObject->SetArrayField(TEXT("rotation"), RotationArray);
+
+        const FVector Scale = Actor->GetActorScale3D();
+        TArray<TSharedPtr<FJsonValue>> ScaleArray;
+        ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.X));
+        ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.Y));
+        ScaleArray.Add(MakeShared<FJsonValueNumber>(Scale.Z));
+        ActorObject->SetArrayField(TEXT("scale"), ScaleArray);
+    }
+
+    return ActorObject;
 }
 
 void FUnrealMCPCommonUtils::GetIntArrayFromJson(const TSharedPtr<FJsonObject>& JsonObject, const FString& FieldName, TArray<int32>& OutArray)
@@ -397,7 +444,111 @@ UEdGraphPin* FUnrealMCPCommonUtils::FindPin(UEdGraphNode* Node, const FString& P
     // Log all pins for debugging
     UE_LOG(LogTemp, Display, TEXT("FindPin: Looking for pin '%s' (Direction: %d) in node '%s'"), 
            *PinName, (int32)Direction, *Node->GetName());
-    
+
     for (UEdGraphPin* Pin : Node->Pins)
     {
-        UE_LOG(LogTemp, Display, TEXT("  - Available pin: '%s
+        UE_LOG(LogTemp, Display, TEXT("  - Available pin: '%s' (Direction: %d)"), *Pin->PinName.ToString(), (int32)Pin->Direction);
+
+        if ((Direction == EGPD_MAX || Pin->Direction == Direction) && Pin->PinName.ToString() == PinName)
+        {
+            return Pin;
+        }
+    }
+
+    return nullptr;
+}
+
+UK2Node_Event* FUnrealMCPCommonUtils::FindExistingEventNode(UEdGraph* Graph, const FString& EventName)
+{
+    if (!Graph)
+    {
+        return nullptr;
+    }
+
+    for (UEdGraphNode* Node : Graph->Nodes)
+    {
+        UK2Node_Event* EventNode = Cast<UK2Node_Event>(Node);
+        if (EventNode && EventNode->EventReference.GetMemberName().ToString() == EventName)
+        {
+            return EventNode;
+        }
+    }
+
+    return nullptr;
+}
+
+bool FUnrealMCPCommonUtils::SetObjectProperty(UObject* Object, const FString& PropertyName, const TSharedPtr<FJsonValue>& Value, FString& OutErrorMessage)
+{
+    if (!Object || !Value.IsValid())
+    {
+        OutErrorMessage = TEXT("Invalid object or value");
+        return false;
+    }
+
+    FProperty* Property = Object->GetClass()->FindPropertyByName(*PropertyName);
+    if (!Property)
+    {
+        OutErrorMessage = FString::Printf(TEXT("Property not found: %s"), *PropertyName);
+        return false;
+    }
+
+    void* PropertyValue = Property->ContainerPtrToValuePtr<void>(Object);
+
+    if (FBoolProperty* BoolProperty = CastField<FBoolProperty>(Property))
+    {
+        BoolProperty->SetPropertyValue(PropertyValue, Value->AsBool());
+        return true;
+    }
+
+    if (FIntProperty* IntProperty = CastField<FIntProperty>(Property))
+    {
+        IntProperty->SetPropertyValue(PropertyValue, static_cast<int32>(Value->AsNumber()));
+        return true;
+    }
+
+    if (FFloatProperty* FloatProperty = CastField<FFloatProperty>(Property))
+    {
+        FloatProperty->SetPropertyValue(PropertyValue, static_cast<float>(Value->AsNumber()));
+        return true;
+    }
+
+    if (FDoubleProperty* DoubleProperty = CastField<FDoubleProperty>(Property))
+    {
+        DoubleProperty->SetPropertyValue(PropertyValue, Value->AsNumber());
+        return true;
+    }
+
+    if (FStrProperty* StringProperty = CastField<FStrProperty>(Property))
+    {
+        StringProperty->SetPropertyValue(PropertyValue, Value->AsString());
+        return true;
+    }
+
+    if (FNameProperty* NameProperty = CastField<FNameProperty>(Property))
+    {
+        NameProperty->SetPropertyValue(PropertyValue, FName(*Value->AsString()));
+        return true;
+    }
+
+    if (FStructProperty* StructProperty = CastField<FStructProperty>(Property))
+    {
+        const TSharedPtr<FJsonObject>* ObjectValue;
+        if (Value->TryGetObject(ObjectValue) && ObjectValue && ObjectValue->IsValid())
+        {
+            if (StructProperty->Struct == TBaseStructure<FVector>::Get())
+            {
+                *static_cast<FVector*>(PropertyValue) = GetVectorFromJson(*ObjectValue, TEXT(""));
+                return true;
+            }
+
+            if (StructProperty->Struct == TBaseStructure<FRotator>::Get())
+            {
+                *static_cast<FRotator*>(PropertyValue) = GetRotatorFromJson(*ObjectValue, TEXT(""));
+                return true;
+            }
+        }
+    }
+
+    OutErrorMessage = FString::Printf(TEXT("Unsupported property type for '%s'"), *PropertyName);
+    return false;
+}
