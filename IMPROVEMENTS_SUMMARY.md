@@ -1,6 +1,15 @@
 # XaihtUnrealEngineMCP v2.0 - Improvements Summary
 
-This document summarizes all improvements applied to the `XaihtUnrealEngineMCP-2` directory.
+This document summarizes all improvements applied to this repository.
+
+> **Restoration note (July 2026).** The commit that restored the truncated
+> UnrealMCP plugin sources brought back an older `BuildCommandRegistry` that did
+> not register the seven v2.0 commands (`execute_python_file`, `save_blueprint`,
+> `is_blueprint_dirty`, `set_material_color`, `get_material_info`,
+> `assign_material_to_all_slots`, `get_supported_commands`), which made their
+> handlers unreachable. The registry (and an inline `get_supported_commands`
+> dispatch in `ExecuteCommand`) has since been re-wired, so everything described
+> below is reachable again. The registry now holds **61 commands**.
 
 ## Emergency Fix (Already Present in Source)
 The 6 dispatcher wire-ups that caused "Unknown command" failures were already present in the original source:
@@ -18,7 +27,7 @@ The 6 dispatcher wire-ups that caused "Unknown command" failures were already pr
 
 - Replaced the hardcoded if-else chain with a `TMap<FString, FString> CommandToCategoryMap`
 - Added `TSet<FString> SupportedCommands` for O(1) membership tests
-- Added `BuildCommandRegistry()` method that registers all 53 commands at construction time
+- Added `BuildCommandRegistry()` method that registers all commands (currently 61) at construction time
 - Dispatch now uses `GetCommandCategory(CommandType)` instead of string comparisons
 - **Prevents all future orphan commands** — adding a new command only requires adding it to the registry
 
@@ -39,9 +48,12 @@ The 6 dispatcher wire-ups that caused "Unknown command" failures were already pr
 
 New commands added:
 - `set_material_color(material, color, parameter="BaseColor")` — one-call color setter
-- `get_material_info(material)` — query scalar, vector, and texture parameters
-- `assign_material_to_all_slots(actor, material)` — assign to every mesh slot at once
-- Multi-slot assignment support in existing `assign_material`
+- `get_material_info(material)` — query a material's name, path and class
+  (parameter enumeration is not implemented yet)
+- `assign_material_to_all_slots(actor, material)` — assign to every slot of every
+  mesh component at once
+- `assign_material` applies its slot index across **all** mesh components of the
+  matched actor (matched by name or editor label)
 
 ## Proposal #4: Blueprint Event Node Overhaul (P2 - 2 hrs)
 **File:** `MCPGameProject/Plugins/UnrealMCP/Source/UnrealMCP/Private/Commands/UnrealMCPCommonUtils.cpp`

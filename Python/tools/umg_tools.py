@@ -17,33 +17,33 @@ def register_umg_tools(mcp: FastMCP):
     @mcp.tool()
     def create_umg_widget_blueprint(
         ctx: Context,
-        widget_name: str,
-        parent_class: str = "UserWidget",
-        path: str = "/Game/UI"
+        widget_name: str
     ) -> Dict[str, Any]:
         """
         Create a new UMG Widget Blueprint.
-        
+
+        The plugin always creates the Widget Blueprint under `/Game/Widgets/` with
+        `UserWidget` as the parent class and a Canvas Panel as the root widget.
+        Custom parent classes / paths are not supported by the C++ handler yet —
+        use `execute_python` for those cases.
+
         Args:
             widget_name: Name of the widget blueprint to create
-            parent_class: Parent class for the widget (default: UserWidget)
-            path: Content browser path where the widget should be created
-            
+
         Returns:
-            Dict containing success status and widget path
+            Dict containing the created widget's name and path
         """
         from unreal_mcp_server import get_unreal_connection
-        
+
         try:
             unreal = get_unreal_connection()
             if not unreal:
                 logger.error("Failed to connect to Unreal Engine")
                 return {"success": False, "message": "Failed to connect to Unreal Engine"}
-            
+
+            # The C++ handler reads the blueprint name from the "name" key.
             params = {
-                "widget_name": widget_name,
-                "parent_class": parent_class,
-                "path": path
+                "name": widget_name
             }
             
             logger.info(f"Creating UMG Widget Blueprint with params: {params}")
@@ -66,43 +66,40 @@ def register_umg_tools(mcp: FastMCP):
         ctx: Context,
         widget_name: str,
         text_block_name: str,
-        text: str = "",
-        position: List[float] = [0.0, 0.0],
-        size: List[float] = [200.0, 50.0],
-        font_size: int = 12,
-        color: List[float] = [1.0, 1.0, 1.0, 1.0]
+        text: str = "New Text Block",
+        position: List[float] = [0.0, 0.0]
     ) -> Dict[str, Any]:
         """
         Add a Text Block widget to a UMG Widget Blueprint.
-        
+
+        The target Widget Blueprint must live under `/Game/Widgets/` (where
+        `create_umg_widget_blueprint` creates it). Styling (size, font, color) is
+        not supported by the C++ handler yet — set those via `execute_python`.
+
         Args:
             widget_name: Name of the target Widget Blueprint
             text_block_name: Name to give the new Text Block
             text: Initial text content
             position: [X, Y] position in the canvas panel
-            size: [Width, Height] of the text block
-            font_size: Font size in points
-            color: [R, G, B, A] color values (0.0 to 1.0)
-            
+
         Returns:
-            Dict containing success status and text block properties
+            Dict containing the new text block's name and text
         """
         from unreal_mcp_server import get_unreal_connection
-        
+
         try:
             unreal = get_unreal_connection()
             if not unreal:
                 logger.error("Failed to connect to Unreal Engine")
                 return {"success": False, "message": "Failed to connect to Unreal Engine"}
-            
+
+            # C++ handler keys: blueprint_name = target Widget Blueprint,
+            # widget_name = name of the new Text Block.
             params = {
-                "widget_name": widget_name,
-                "text_block_name": text_block_name,
+                "blueprint_name": widget_name,
+                "widget_name": text_block_name,
                 "text": text,
-                "position": position,
-                "size": size,
-                "font_size": font_size,
-                "color": color
+                "position": position
             }
             
             logger.info(f"Adding Text Block to widget with params: {params}")
@@ -125,46 +122,40 @@ def register_umg_tools(mcp: FastMCP):
         ctx: Context,
         widget_name: str,
         button_name: str,
-        text: str = "",
-        position: List[float] = [0.0, 0.0],
-        size: List[float] = [200.0, 50.0],
-        font_size: int = 12,
-        color: List[float] = [1.0, 1.0, 1.0, 1.0],
-        background_color: List[float] = [0.1, 0.1, 0.1, 1.0]
+        text: str = "Button",
+        position: List[float] = [0.0, 0.0]
     ) -> Dict[str, Any]:
         """
-        Add a Button widget to a UMG Widget Blueprint.
-        
+        Add a Button widget (with a text label) to a UMG Widget Blueprint.
+
+        The target Widget Blueprint must live under `/Game/Widgets/`. Styling
+        (size, font, colors) is not supported by the C++ handler yet — set those
+        via `execute_python`.
+
         Args:
             widget_name: Name of the target Widget Blueprint
             button_name: Name to give the new Button
-            text: Text to display on the button
+            text: Text to display on the button (required by the plugin)
             position: [X, Y] position in the canvas panel
-            size: [Width, Height] of the button
-            font_size: Font size for button text
-            color: [R, G, B, A] text color values (0.0 to 1.0)
-            background_color: [R, G, B, A] button background color values (0.0 to 1.0)
-            
+
         Returns:
-            Dict containing success status and button properties
+            Dict containing success status and the new button's name
         """
         from unreal_mcp_server import get_unreal_connection
-        
+
         try:
             unreal = get_unreal_connection()
             if not unreal:
                 logger.error("Failed to connect to Unreal Engine")
                 return {"success": False, "message": "Failed to connect to Unreal Engine"}
-            
+
+            # C++ handler keys: blueprint_name = target Widget Blueprint,
+            # widget_name = name of the new Button.
             params = {
-                "widget_name": widget_name,
-                "button_name": button_name,
+                "blueprint_name": widget_name,
+                "widget_name": button_name,
                 "text": text,
-                "position": position,
-                "size": size,
-                "font_size": font_size,
-                "color": color,
-                "background_color": background_color
+                "position": position
             }
             
             logger.info(f"Adding Button to widget with params: {params}")
@@ -187,38 +178,38 @@ def register_umg_tools(mcp: FastMCP):
         ctx: Context,
         widget_name: str,
         widget_component_name: str,
-        event_name: str,
-        function_name: str = ""
+        event_name: str
     ) -> Dict[str, Any]:
         """
-        Bind an event on a widget component to a function.
-        
+        Bind an event on a widget component by creating the bound event node
+        (e.g. OnClicked) in the Widget Blueprint's event graph.
+
+        The C++ handler creates (or reuses) the standard bound event node for the
+        widget class; custom target function names are not supported yet —
+        implement the event body with the Blueprint node tools afterwards.
+
         Args:
-            widget_name: Name of the target Widget Blueprint
+            widget_name: Name of the target Widget Blueprint (under /Game/Widgets/)
             widget_component_name: Name of the widget component (button, etc.)
             event_name: Name of the event to bind (OnClicked, etc.)
-            function_name: Name of the function to create/bind to (defaults to f"{widget_component_name}_{event_name}")
-            
+
         Returns:
-            Dict containing success status and binding information
+            Dict containing success status and the bound event name
         """
         from unreal_mcp_server import get_unreal_connection
-        
+
         try:
             unreal = get_unreal_connection()
             if not unreal:
                 logger.error("Failed to connect to Unreal Engine")
                 return {"success": False, "message": "Failed to connect to Unreal Engine"}
-            
-            # If no function name provided, create one from component and event names
-            if not function_name:
-                function_name = f"{widget_component_name}_{event_name}"
-            
+
+            # C++ handler keys: blueprint_name = target Widget Blueprint,
+            # widget_name = the component whose event is bound.
             params = {
-                "widget_name": widget_name,
-                "widget_component_name": widget_component_name,
-                "event_name": event_name,
-                "function_name": function_name
+                "blueprint_name": widget_name,
+                "widget_name": widget_component_name,
+                "event_name": event_name
             }
             
             logger.info(f"Binding widget event with params: {params}")
@@ -243,25 +234,31 @@ def register_umg_tools(mcp: FastMCP):
         z_order: int = 0
     ) -> Dict[str, Any]:
         """
-        Add a Widget Blueprint instance to the viewport.
-        
+        Prepare a Widget Blueprint for viewport display.
+
+        Note: the C++ handler validates the widget class and returns its class
+        path, but it does NOT add the widget to a running game viewport (that
+        requires a game context). Use the returned class with `CreateWidget` +
+        `AddToViewport` Blueprint nodes to display it in game.
+
         Args:
-            widget_name: Name of the Widget Blueprint to add
-            z_order: Z-order for the widget (higher numbers appear on top)
-            
+            widget_name: Name of the Widget Blueprint (under /Game/Widgets/)
+            z_order: Z-order for the widget (echoed back; higher numbers on top)
+
         Returns:
-            Dict containing success status and widget instance information
+            Dict with the widget's `class_path`, `z_order`, and a usage note
         """
         from unreal_mcp_server import get_unreal_connection
-        
+
         try:
             unreal = get_unreal_connection()
             if not unreal:
                 logger.error("Failed to connect to Unreal Engine")
                 return {"success": False, "message": "Failed to connect to Unreal Engine"}
-            
+
+            # C++ handler key: blueprint_name = the Widget Blueprint.
             params = {
-                "widget_name": widget_name,
+                "blueprint_name": widget_name,
                 "z_order": z_order
             }
             
@@ -285,34 +282,37 @@ def register_umg_tools(mcp: FastMCP):
         ctx: Context,
         widget_name: str,
         text_block_name: str,
-        binding_property: str,
-        binding_type: str = "Text"
+        binding_property: str
     ) -> Dict[str, Any]:
         """
-        Set up a property binding for a Text Block widget.
-        
+        Set up a Text property binding for a Text Block widget.
+
+        Creates a Text member variable named `binding_property` plus a
+        `Get<binding_property>` binding function in the Widget Blueprint. Only
+        Text bindings are supported by the C++ handler.
+
         Args:
-            widget_name: Name of the target Widget Blueprint
+            widget_name: Name of the target Widget Blueprint (under /Game/Widgets/)
             text_block_name: Name of the Text Block to bind
-            binding_property: Name of the property to bind to
-            binding_type: Type of binding (Text, Visibility, etc.)
-            
+            binding_property: Name of the variable/binding to create
+
         Returns:
-            Dict containing success status and binding information
+            Dict containing success status and the binding name
         """
         from unreal_mcp_server import get_unreal_connection
-        
+
         try:
             unreal = get_unreal_connection()
             if not unreal:
                 logger.error("Failed to connect to Unreal Engine")
                 return {"success": False, "message": "Failed to connect to Unreal Engine"}
-            
+
+            # C++ handler keys: blueprint_name = target Widget Blueprint,
+            # widget_name = the Text Block, binding_name = variable to create.
             params = {
-                "widget_name": widget_name,
-                "text_block_name": text_block_name,
-                "binding_property": binding_property,
-                "binding_type": binding_type
+                "blueprint_name": widget_name,
+                "widget_name": text_block_name,
+                "binding_name": binding_property
             }
             
             logger.info(f"Setting text block binding with params: {params}")

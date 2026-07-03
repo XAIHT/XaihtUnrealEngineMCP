@@ -237,7 +237,8 @@ void UUnrealMCPBridge::BuildCommandRegistry()
         TEXT("create_blueprint"), TEXT("add_component_to_blueprint"),
         TEXT("set_component_property"), TEXT("set_physics_properties"),
         TEXT("compile_blueprint"), TEXT("set_blueprint_property"),
-        TEXT("set_static_mesh_properties"), TEXT("set_pawn_properties")
+        TEXT("set_static_mesh_properties"), TEXT("set_pawn_properties"),
+        TEXT("save_blueprint"), TEXT("is_blueprint_dirty")
     };
     for (const FString& Cmd : BlueprintCmds)
     {
@@ -282,8 +283,10 @@ void UUnrealMCPBridge::BuildCommandRegistry()
 
     // System Commands
     const TArray<FString> SystemCmds = {
-        TEXT("execute_python"), TEXT("execute_console_command"),
-        TEXT("get_class_info"), TEXT("list_assets")
+        TEXT("execute_python"), TEXT("execute_python_file"),
+        TEXT("execute_console_command"),
+        TEXT("get_class_info"), TEXT("list_assets"),
+        TEXT("get_supported_commands")
     };
     for (const FString& Cmd : SystemCmds)
     {
@@ -317,7 +320,9 @@ void UUnrealMCPBridge::BuildCommandRegistry()
     // Material Commands
     const TArray<FString> MaterialCmds = {
         TEXT("create_material"), TEXT("create_material_instance"),
-        TEXT("set_material_parameter"), TEXT("assign_material")
+        TEXT("set_material_parameter"), TEXT("assign_material"),
+        TEXT("set_material_color"), TEXT("get_material_info"),
+        TEXT("assign_material_to_all_slots")
     };
     for (const FString& Cmd : MaterialCmds)
     {
@@ -429,6 +434,22 @@ FString UUnrealMCPBridge::ExecuteCommand(const FString& CommandType, const TShar
             {
                 ResultJson = MakeShareable(new FJsonObject);
                 ResultJson->SetStringField(TEXT("message"), TEXT("pong"));
+            }
+            else if (CommandType == TEXT("get_supported_commands"))
+            {
+                // Runtime command discovery (Proposal #2) — answered by the bridge
+                // itself so the list always matches the dispatch registry.
+                ResultJson = MakeShareable(new FJsonObject);
+                TArray<TSharedPtr<FJsonValue>> CommandArray;
+                for (const FString& Cmd : GetSupportedCommands())
+                {
+                    TSharedPtr<FJsonObject> CmdObj = MakeShared<FJsonObject>();
+                    CmdObj->SetStringField(TEXT("name"), Cmd);
+                    CmdObj->SetStringField(TEXT("category"), GetCommandCategory(Cmd));
+                    CommandArray.Add(MakeShared<FJsonValueObject>(CmdObj));
+                }
+                ResultJson->SetArrayField(TEXT("commands"), CommandArray);
+                ResultJson->SetNumberField(TEXT("count"), CommandArray.Num());
             }
             else if (Category == TEXT("editor"))
             {

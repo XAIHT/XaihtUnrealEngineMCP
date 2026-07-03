@@ -101,7 +101,8 @@ def create_test_cube(name: str, location: list[float]) -> Optional[Dict[str, Any
         "scale": [1.0, 1.0, 1.0]
     }
     
-    response = send_command("create_actor", cube_params)
+    # spawn_actor is the canonical command; create_actor is a deprecated alias.
+    response = send_command("spawn_actor", cube_params)
     if not response or response.get("status") != "success":
         logger.error(f"Failed to create cube: {response}")
         return None

@@ -109,7 +109,7 @@ def main():
         
         begin_play_params = {
             "blueprint_name": "TestCompRefBP",
-            "event_type": "BeginPlay",
+            "event_name": "ReceiveBeginPlay",
             "node_position": [0, 0]
         }
         

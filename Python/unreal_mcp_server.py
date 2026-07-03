@@ -285,18 +285,20 @@ def info():
     # Unreal MCP Server Tools and Best Practices
     
     ## UMG (Widget Blueprint) Tools
-    - `create_umg_widget_blueprint(widget_name, parent_class="UserWidget", path="/Game/UI")` 
-      Create a new UMG Widget Blueprint
-    - `add_text_block_to_widget(widget_name, text_block_name, text="", position=[0,0], size=[200,50], font_size=12, color=[1,1,1,1])`
-      Add a Text Block widget with customizable properties
-    - `add_button_to_widget(widget_name, button_name, text="", position=[0,0], size=[200,50], font_size=12, color=[1,1,1,1], background_color=[0.1,0.1,0.1,1])`
-      Add a Button widget with text and styling
-    - `bind_widget_event(widget_name, widget_component_name, event_name, function_name="")`
-      Bind events like OnClicked to functions
+    All Widget Blueprints are created and looked up under `/Game/Widgets/`.
+    - `create_umg_widget_blueprint(widget_name)`
+      Create a new UMG Widget Blueprint (UserWidget parent, Canvas Panel root)
+    - `add_text_block_to_widget(widget_name, text_block_name, text="New Text Block", position=[0,0])`
+      Add a Text Block widget (styling not supported yet — use execute_python)
+    - `add_button_to_widget(widget_name, button_name, text="Button", position=[0,0])`
+      Add a Button widget with a text label
+    - `bind_widget_event(widget_name, widget_component_name, event_name)`
+      Create the bound event node (e.g. OnClicked) in the widget's event graph
     - `add_widget_to_viewport(widget_name, z_order=0)`
-      Add widget instance to game viewport
-    - `set_text_block_binding(widget_name, text_block_name, binding_property, binding_type="Text")`
-      Set up dynamic property binding for text blocks
+      Validate the widget class and return its class path (display it in game
+      with CreateWidget + AddToViewport Blueprint nodes)
+    - `set_text_block_binding(widget_name, text_block_name, binding_property)`
+      Create a Text variable + Get<binding> function binding for a Text Block
 
     ## Editor Tools
     ### Viewport and Screenshots
@@ -312,6 +314,7 @@ def info():
     - `get_actor_properties(name)` - Get actor properties
     
     ## Blueprint Management
+    Blueprints are created and looked up under `/Game/Blueprints/`.
     - `create_blueprint(name, parent_class)` - Create new Blueprint classes
     - `add_component_to_blueprint(blueprint_name, component_type, component_name)` - Add components
     - `set_static_mesh_properties(blueprint_name, component_name, static_mesh)` - Configure meshes
@@ -320,25 +323,31 @@ def info():
     - `set_blueprint_property(blueprint_name, property_name, property_value)` - Set properties
     - `set_pawn_properties(blueprint_name)` - Configure Pawn settings
     - `spawn_blueprint_actor(blueprint_name, actor_name)` - Spawn Blueprint actors
+    - `save_blueprint(blueprint_name)` - Save a Blueprint asset to disk
+    - `is_blueprint_dirty(blueprint_name)` - Check for unsaved Blueprint changes
     
     ## Blueprint Node Management
-    - `add_blueprint_event_node(blueprint_name, event_type)` - Add event nodes
+    - `add_blueprint_event_node(blueprint_name, event_name)` - Add event nodes
+      (use exact names with the Receive prefix, e.g. "ReceiveBeginPlay")
     - `add_blueprint_input_action_node(blueprint_name, action_name)` - Add input nodes
     - `add_blueprint_function_node(blueprint_name, target, function_name)` - Add function nodes
     - `connect_blueprint_nodes(blueprint_name, source_node_id, source_pin, target_node_id, target_pin)` - Connect nodes
     - `add_blueprint_variable(blueprint_name, variable_name, variable_type)` - Add variables
     - `add_blueprint_get_self_component_reference(blueprint_name, component_name)` - Add component refs
     - `add_blueprint_self_reference(blueprint_name)` - Add self references
-    - `find_blueprint_nodes(blueprint_name, node_type, event_type)` - Find nodes
+    - `find_blueprint_nodes(blueprint_name, node_type="Event", event_name)` - Find Event nodes
+      (only Event search is implemented; use exact names like "ReceiveBeginPlay")
     
     ## Project Tools
-    - `create_input_mapping(action_name, key, input_type)` - Create input mappings
+    - `create_input_mapping(action_name, key)` - Create legacy input Action mappings
 
     ## System / Introspection Tools
     - `execute_python(code)` - Run a Python script inside the editor (reaches the full `unreal` API)
+    - `execute_python_file(file_path)` - Run a .py file (relative paths resolve against the project dir)
     - `execute_console_command(command)` - Run a console command or set a CVar
     - `get_class_info(class_name)` - Reflect a UClass: parent, properties, functions
     - `list_assets(path, recursive)` - Enumerate assets under a content path
+    - `get_supported_commands()` - List every command the C++ bridge supports, with categories
     - `call_unreal(command, params)` - Generic passthrough to any bridge command
 
     ## Level / World Tools
@@ -355,8 +364,11 @@ def info():
     ## Material Tools
     - `create_material(name, path)` - Create a Material asset
     - `create_material_instance(name, parent_material, path)` - Create a Material Instance
-    - `set_material_parameter(material, parameter, value)` - Scalar (number) or vector ([r,g,b,a])
-    - `assign_material(actor, material, slot)` - Assign a material to a level actor
+    - `set_material_parameter(material, parameter, value)` - Scalar (number), vector ([r,g,b,a]) or texture (path)
+    - `assign_material(actor, material, slot)` - Assign a material to a level actor's mesh slot
+    - `set_material_color(material, color, parameter="BaseColor")` - One-call color setter
+    - `get_material_info(material)` - Basic info: name, path, class
+    - `assign_material_to_all_slots(actor, material)` - Assign to every mesh slot at once
 
     ## Automation Tools
     - `run_macro(steps, stop_on_error)` - Run a sequence of bridge commands as one workflow

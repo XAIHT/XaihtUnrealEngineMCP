@@ -37,10 +37,12 @@ Get a list of all actors in the current level.
 Find actors in the current level by name pattern.
 
 **Parameters:**
-- `pattern` (string) - The name or partial name pattern to search for
+- `pattern` (string) - Substring to match against actor names (`Contains` match,
+  no wildcards)
 
 **Returns:**
-- List of matching actor names
+- List of matching actors with their properties (same shape as
+  `get_actors_in_level`)
 
 **Example:**
 ```json
@@ -60,14 +62,13 @@ Create a new actor in the current level.
 > handler; new code should use `spawn_actor`.
 
 **Parameters:**
-- `name` (string) - The name for the new actor (must be unique)
-- `type` (string) - The type of actor to create (matched case-insensitively — see
-  [Actor Types](#actor-types) below)
+- `name` (string) - The name for the new actor (must be unique in the level; the
+  handler rejects duplicates)
+- `type` (string) - The type of actor to create (matched **exactly,
+  case-sensitively** — see [Actor Types](#actor-types) below)
 - `location` (array, optional) - `[X, Y, Z]` coordinates for the actor's position, defaults to `[0, 0, 0]`
 - `rotation` (array, optional) - `[Pitch, Yaw, Roll]` values for the actor's rotation, defaults to `[0, 0, 0]`
-
-> The `spawn_actor` MCP tool does **not** take a `scale` argument. Set scale after
-> spawning with [`set_actor_transform`](#set_actor_transform).
+- `scale` (array, optional) - `[X, Y, Z]` scale applied after spawning, defaults to `[1, 1, 1]`
 
 **Returns:**
 - Information about the created actor
@@ -180,19 +181,20 @@ Set a single property on an actor.
 
 ## Error Handling
 
-All command responses include a "success" field indicating whether the operation succeeded, and an optional "message" field with details in case of failure.
+Bridge-level errors come back as a `status`/`error` pair; the Python tools may
+also return `success`/`message` for connection problems.
 
 ```json
 {
-  "success": false,
-  "message": "Actor 'MyCube' not found in the current level"
+  "status": "error",
+  "error": "Actor not found: MyCube"
 }
 ```
 
 ## Implementation Notes
 
 - All numeric parameters for transforms (location, rotation, scale) must be provided as lists of 3 float values
-- Actor type matching is case-insensitive
+- Actor `type` matching is **exact and case-sensitive** (`"PointLight"`, not `"pointlight"`)
 - The server maintains logging of all operations with detailed information and error messages
 - All commands are executed through a connection to the Unreal Engine editor
 
@@ -200,7 +202,7 @@ All command responses include a "success" field indicating whether the operation
 
 ### Actor Types
 
-Actor types accepted by the `spawn_actor` command (matched case-insensitively):
+Actor types accepted by the `spawn_actor` command (matched exactly, case-sensitively):
 
 - `StaticMeshActor` - Empty static mesh actor (set its mesh afterwards via
   `set_actor_property` / a Blueprint, or use a Blueprint actor)

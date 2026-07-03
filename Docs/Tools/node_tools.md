@@ -14,7 +14,8 @@ Add an event node to a Blueprint's event graph.
 
 **Parameters:**
 - `blueprint_name` (string) - Name of the target Blueprint
-- `event_type` (string) - Type of event (BeginPlay, Tick, etc.)
+- `event_name` (string) - Exact event member name, using the `Receive` prefix for
+  standard events: `ReceiveBeginPlay`, `ReceiveTick`, etc.
 - `node_position` (array, optional) - [X, Y] position in the graph (default: [0, 0])
 
 **Returns:**
@@ -26,7 +27,7 @@ Add an event node to a Blueprint's event graph.
   "command": "add_blueprint_event_node",
   "params": {
     "blueprint_name": "MyActor",
-    "event_type": "BeginPlay",
+    "event_name": "ReceiveBeginPlay",
     "node_position": [100, 100]
   }
 }
@@ -120,10 +121,13 @@ Add a variable to a Blueprint.
 
 **Parameters:**
 - `blueprint_name` (string) - Name of the target Blueprint
+- `variable_type` (string) - Type of the variable. Supported values:
+  `Boolean`, `Integer` (or `Int`), `Float`, `String`, `Vector`
 - `variable_name` (string) - Name of the variable
-- `variable_type` (string) - Type of the variable (Boolean, Integer, Float, Vector, etc.)
-- `default_value` (any, optional) - Default value for the variable
 - `is_exposed` (boolean, optional) - Whether to expose the variable to the editor (default: false)
+
+> Setting a default value is **not supported** by the C++ handler — set it via
+> `set_blueprint_property` or `execute_python` after creating the variable.
 
 **Returns:**
 - Response indicating success or failure
@@ -136,7 +140,6 @@ Add a variable to a Blueprint.
     "blueprint_name": "MyActor",
     "variable_name": "Health",
     "variable_type": "Float",
-    "default_value": 100.0,
     "is_exposed": true
   }
 }
@@ -216,13 +219,17 @@ Add a 'Get Self' node to a Blueprint's event graph.
 
 Find nodes in a Blueprint's event graph.
 
+> The C++ handler currently implements **Event-node search only**; other node
+> types return an empty list.
+
 **Parameters:**
 - `blueprint_name` (string) - Name of the target Blueprint
-- `node_type` (string, optional) - Type of node to find (Event, Function, Variable, etc.)
-- `event_type` (string, optional) - Specific event type to find (BeginPlay, Tick, etc.)
+- `node_type` (string) - Type of node to find. Only `"Event"` is implemented.
+- `event_name` (string) - Exact event member name to find, e.g.
+  `"ReceiveBeginPlay"` (required when `node_type` is `"Event"`)
 
 **Returns:**
-- Response containing array of found node IDs and success status
+- `node_guids` (array) - GUIDs of the matching nodes
 
 **Example:**
 ```json
@@ -231,44 +238,45 @@ Find nodes in a Blueprint's event graph.
   "params": {
     "blueprint_name": "MyActor",
     "node_type": "Event",
-    "event_type": "BeginPlay"
+    "event_name": "ReceiveBeginPlay"
   }
 }
 ```
 
 ## Error Handling
 
-All command responses include a "success" field indicating whether the operation succeeded, and an optional "message" field with details in case of failure.
+Bridge-level errors come back as a `status`/`error` pair; the Python tools may
+also return `success`/`message` for connection problems.
 
 ```json
 {
-  "success": false,
-  "message": "Blueprint 'MyActor' not found in the project",
-  "command": "add_blueprint_event_node"
+  "status": "error",
+  "error": "Blueprint not found: MyActor"
 }
 ```
+
+All node tools resolve the target Blueprint at the fixed path
+`/Game/Blueprints/<blueprint_name>`.
 
 ## Type Reference
 
 ### Node Types
 
-Common node types for the `find_blueprint_nodes` command:
+Node types for the `find_blueprint_nodes` command:
 
-- `Event` - Event nodes (BeginPlay, Tick, etc.)
-- `Function` - Function call nodes
-- `Variable` - Variable nodes
-- `Component` - Component reference nodes
-- `Self` - Self reference nodes
+- `Event` - Event nodes, matched by exact event member name (e.g.
+  `ReceiveBeginPlay`, `ReceiveTick`) — **the only type implemented today**
 
 ### Variable Types
 
-Common variable types for the `add_blueprint_variable` command:
+Variable types supported by the `add_blueprint_variable` command
+(anything else returns an "Unsupported variable type" error):
 
 - `Boolean` - True/false values
-- `Integer` - Whole numbers
+- `Integer` / `Int` - Whole numbers
 - `Float` - Decimal numbers
-- `Vector` - 3D vector values
 - `String` - Text values
-- `Object Reference` - References to other objects
-- `Actor Reference` - References to actors
-- `Component Reference` - References to components
+- `Vector` - 3D vector values (FVector)
+
+For object/actor/component reference variables and other types, use
+[`execute_python`](system_tools.md#execute_python).

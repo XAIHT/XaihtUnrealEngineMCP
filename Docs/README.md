@@ -12,7 +12,7 @@ system with Unreal Engine.
 
 ## Reference
 
-- **[Tools](Tools/README.md)** — index of all ~56 tools across 10 categories, with
+- **[Tools](Tools/README.md)** — index of all 63 tools across 10 categories, with
   per-category pages (parameters, return values, examples).
 
 ## Project analysis & roadmap

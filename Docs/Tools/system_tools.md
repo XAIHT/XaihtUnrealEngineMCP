@@ -12,9 +12,11 @@ functionality that does not (yet) have a dedicated wrapper.
 | Tool | Purpose |
 |------|---------|
 | `execute_python` | Run a Python script inside the editor (full `unreal` API) |
+| `execute_python_file` | Run a `.py` file inside the editor (paths resolve against the project dir) |
 | `execute_console_command` | Run an editor console command / set a CVar |
 | `get_class_info` | Reflect a `UClass`: parent, properties, functions |
 | `list_assets` | Enumerate assets under a content path (Asset Registry) |
+| `get_supported_commands` | List every command the C++ bridge supports, with categories |
 | `call_unreal` | Generic passthrough to any registered bridge command |
 
 `execute_python` is the highest-leverage tool: anything the editor's `unreal`
@@ -33,6 +35,7 @@ Execute a Python script inside the Unreal Editor and return its output.
 **Parameters:**
 - `code` (string) - Python source to run. Multi-line scripts are supported. Use
   `unreal.log(...)` or `print(...)` to surface values into the returned `log` array.
+  (At the wire level the handler also accepts the source under a `command` key.)
 
 **Returns:**
 - `success` (boolean)
@@ -45,6 +48,33 @@ Execute a Python script inside the Unreal Editor and return its output.
   "command": "execute_python",
   "params": {
     "code": "import unreal\nprint(unreal.SystemLibrary.get_engine_version())"
+  }
+}
+```
+
+---
+
+## execute_python_file
+
+Execute a Python script **file** inside the Unreal Editor. Relative paths are
+resolved against the project directory.
+
+**Requires:** the **Python Editor Script Plugin** (same as `execute_python`).
+
+**Parameters:**
+- `file_path` (string) - Path to the `.py` file (absolute, or relative to the
+  project directory).
+
+**Returns:**
+- `success` (boolean), `file` (string, the resolved path)
+- `result` (string), `log` (array of `{type, output}` entries)
+
+**Example:**
+```json
+{
+  "command": "execute_python_file",
+  "params": {
+    "file_path": "Scripts/setup_level.py"
   }
 }
 ```
@@ -119,6 +149,29 @@ List assets under a content-browser path using the Asset Registry.
     "path": "/Game",
     "recursive": true
   }
+}
+```
+
+---
+
+## get_supported_commands
+
+Return the full list of commands supported by the connected C++ bridge. This is
+the canonical way to discover what the running editor can do — the list is built
+from the bridge's own dispatch registry, so it can never drift from reality.
+
+**Parameters:**
+- None
+
+**Returns:**
+- `commands` (array) - `[{name, category}]`, sorted alphabetically
+- `count` (integer)
+
+**Example:**
+```json
+{
+  "command": "get_supported_commands",
+  "params": {}
 }
 ```
 

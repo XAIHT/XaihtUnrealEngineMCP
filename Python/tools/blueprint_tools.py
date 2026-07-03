@@ -21,7 +21,14 @@ def register_blueprint_tools(mcp: FastMCP):
         name: str,
         parent_class: str
     ) -> Dict[str, Any]:
-        """Create a new Blueprint class."""
+        """Create a new Blueprint class under /Game/Blueprints/.
+
+        Args:
+            name: Name of the new Blueprint asset (created at /Game/Blueprints/<name>).
+            parent_class: Parent class name without prefix (e.g. "Actor", "Pawn").
+                Resolved against /Script/Engine and /Script/Game; falls back to
+                Actor if the class cannot be found.
+        """
         # Import inside function to avoid circular imports
         from unreal_mcp_server import get_unreal_connection
         
@@ -61,16 +68,17 @@ def register_blueprint_tools(mcp: FastMCP):
     ) -> Dict[str, Any]:
         """
         Add a component to a Blueprint.
-        
+
         Args:
-            blueprint_name: Name of the target Blueprint
+            blueprint_name: Name of the target Blueprint (must live under /Game/Blueprints/)
             component_type: Type of component to add (use component class name without U prefix)
             component_name: Name for the new component
             location: [X, Y, Z] coordinates for component's position
             rotation: [Pitch, Yaw, Roll] values for component's rotation
             scale: [X, Y, Z] values for component's scale
-            component_properties: Additional properties to set on the component
-        
+            component_properties: Currently IGNORED by the C++ handler — set
+                properties afterwards with `set_component_property`.
+
         Returns:
             Information about the added component
         """
@@ -217,7 +225,13 @@ def register_blueprint_tools(mcp: FastMCP):
         linear_damping: float = 0.01,
         angular_damping: float = 0.0
     ) -> Dict[str, Any]:
-        """Set physics properties on a component."""
+        """Set physics properties on a primitive component in a Blueprint.
+
+        The C++ handler applies simulate_physics, mass (as mass override in kg),
+        linear_damping and angular_damping. `gravity_enabled` is currently
+        IGNORED by the handler — use `set_component_property` with
+        `bEnableGravity` instead.
+        """
         from unreal_mcp_server import get_unreal_connection
         
         try:

@@ -384,28 +384,34 @@ def register_blueprint_node_tools(mcp: FastMCP):
     def find_blueprint_nodes(
         ctx: Context,
         blueprint_name: str,
-        node_type = None,
-        event_type = None
+        node_type: str = "Event",
+        event_name: str = None
     ) -> Dict[str, Any]:
         """
         Find nodes in a Blueprint's event graph.
-        
+
+        The C++ handler currently supports searching for **Event** nodes only, and
+        requires the exact event member name (e.g. "ReceiveBeginPlay",
+        "ReceiveTick").
+
         Args:
             blueprint_name: Name of the target Blueprint
-            node_type: Optional type of node to find (Event, Function, Variable, etc.)
-            event_type: Optional specific event type to find (BeginPlay, Tick, etc.)
-            
+            node_type: Type of node to find. Only "Event" is implemented today.
+            event_name: Exact event name to find (required when node_type is
+                        "Event"), e.g. "ReceiveBeginPlay".
+
         Returns:
-            Response containing array of found node IDs and success status
+            Response containing a `node_guids` array of matching node IDs
         """
         from unreal_mcp_server import get_unreal_connection
-        
+
         try:
             params = {
                 "blueprint_name": blueprint_name,
-                "node_type": node_type,
-                "event_type": event_type
+                "node_type": node_type
             }
+            if event_name is not None:
+                params["event_name"] = event_name
             
             unreal = get_unreal_connection()
             if not unreal:

@@ -2,74 +2,81 @@
 
 This document describes the **UMG (Widget Blueprint)** tools in the Unreal MCP
 integration: creating Widget Blueprints, adding Text Block and Button widgets,
-binding events and properties, and adding widgets to the viewport.
+binding events and properties, and preparing widgets for viewport display.
 
 > Backend: `FUnrealMCPUMGCommands` (`UnrealMCPUMGCommands.{h,cpp}`) ·
 > Python: `Python/tools/umg_tools.py` (`register_umg_tools`)
 >
-> Widget creation currently supports **Text Block** and **Button** widget types.
+> All Widget Blueprints are created and looked up under the fixed path
+> **`/Game/Widgets/`**. Widget creation currently supports **Text Block** and
+> **Button** widget types; styling (size, font, colors) is not implemented in the
+> C++ handlers yet — use [`execute_python`](system_tools.md#execute_python) for that.
 
 ## Overview
 
 | Tool | Purpose |
 |------|---------|
-| `create_umg_widget_blueprint` | Create a new UMG Widget Blueprint |
-| `add_text_block_to_widget` | Add a Text Block with customizable styling |
-| `add_button_to_widget` | Add a Button with text and styling |
-| `bind_widget_event` | Bind a widget event (e.g. `OnClicked`) to a function |
-| `add_widget_to_viewport` | Add a widget instance to the game viewport |
-| `set_text_block_binding` | Set up a dynamic property binding for a Text Block |
+| `create_umg_widget_blueprint` | Create a new UMG Widget Blueprint (UserWidget + Canvas Panel root) |
+| `add_text_block_to_widget` | Add a Text Block at a canvas position |
+| `add_button_to_widget` | Add a Button (with text label) at a canvas position |
+| `bind_widget_event` | Create the bound event node (e.g. `OnClicked`) in the event graph |
+| `add_widget_to_viewport` | Validate the widget class and return its class path |
+| `set_text_block_binding` | Create a Text variable + binding function for a Text Block |
+
+> **Two naming layers.** The MCP tools (Python) accept friendly argument names
+> like `widget_name` / `text_block_name`; on the wire, the C++ handlers read
+> `blueprint_name` (the Widget Blueprint) and `widget_name` (the child widget).
+> The raw-command examples below show the **wire keys** the plugin actually reads.
 
 ---
 
 ## create_umg_widget_blueprint
 
-Create a new UMG Widget Blueprint.
+Create a new UMG Widget Blueprint at `/Game/Widgets/<name>` with `UserWidget` as
+the parent class and a Canvas Panel as the root widget. Custom parent classes and
+paths are **not supported** by the C++ handler.
 
-**Parameters:**
-- `widget_name` (string) - Name of the widget blueprint to create.
-- `parent_class` (string, default: `"UserWidget"`) - Parent class for the widget.
-- `path` (string, default: `"/Game/UI"`) - Content path where the widget is created.
+**MCP tool arguments:** `widget_name`
 
-**Example:**
+**Wire parameters:**
+- `name` (string) - Name of the widget blueprint to create.
+
+**Example (raw command):**
 ```json
 {
   "command": "create_umg_widget_blueprint",
   "params": {
-    "widget_name": "WBP_MainMenu",
-    "parent_class": "UserWidget",
-    "path": "/Game/UI"
+    "name": "WBP_MainMenu"
   }
 }
 ```
+
+**Returns:** the created widget's `name` and `path` (`/Game/Widgets/<name>`).
 
 ---
 
 ## add_text_block_to_widget
 
-Add a Text Block widget to a UMG Widget Blueprint.
+Add a Text Block widget to a Widget Blueprint's root Canvas Panel.
 
-**Parameters:**
-- `widget_name` (string) - Name of the target Widget Blueprint.
-- `text_block_name` (string) - Name to give the new Text Block.
-- `text` (string, default: `""`) - Initial text content.
+**MCP tool arguments:** `widget_name` (target Blueprint), `text_block_name`,
+`text`, `position`
+
+**Wire parameters:**
+- `blueprint_name` (string) - Name of the target Widget Blueprint (under `/Game/Widgets/`).
+- `widget_name` (string) - Name to give the new Text Block.
+- `text` (string, default: `"New Text Block"`) - Initial text content.
 - `position` (array, default: `[0, 0]`) - `[X, Y]` position in the canvas panel.
-- `size` (array, default: `[200, 50]`) - `[Width, Height]` of the text block.
-- `font_size` (integer, default: `12`) - Font size in points.
-- `color` (array, default: `[1, 1, 1, 1]`) - `[R, G, B, A]` color values (0.0–1.0).
 
-**Example:**
+**Example (raw command):**
 ```json
 {
   "command": "add_text_block_to_widget",
   "params": {
-    "widget_name": "WBP_MainMenu",
-    "text_block_name": "TitleText",
+    "blueprint_name": "WBP_MainMenu",
+    "widget_name": "TitleText",
     "text": "My Game",
-    "position": [100, 50],
-    "size": [400, 80],
-    "font_size": 36,
-    "color": [1, 1, 1, 1]
+    "position": [100, 50]
   }
 }
 ```
@@ -78,28 +85,27 @@ Add a Text Block widget to a UMG Widget Blueprint.
 
 ## add_button_to_widget
 
-Add a Button widget to a UMG Widget Blueprint.
+Add a Button widget (with a nested text label) to a Widget Blueprint's root
+Canvas Panel. The blueprint is compiled and saved afterwards.
 
-**Parameters:**
-- `widget_name` (string) - Name of the target Widget Blueprint.
-- `button_name` (string) - Name to give the new Button.
-- `text` (string, default: `""`) - Text to display on the button.
-- `position` (array, default: `[0, 0]`) - `[X, Y]` position in the canvas panel.
-- `size` (array, default: `[200, 50]`) - `[Width, Height]` of the button.
-- `font_size` (integer, default: `12`) - Font size for button text.
-- `color` (array, default: `[1, 1, 1, 1]`) - `[R, G, B, A]` text color values.
-- `background_color` (array, default: `[0.1, 0.1, 0.1, 1]`) - `[R, G, B, A]` button background color.
+**MCP tool arguments:** `widget_name` (target Blueprint), `button_name`, `text`,
+`position`
 
-**Example:**
+**Wire parameters:**
+- `blueprint_name` (string) - Name of the target Widget Blueprint.
+- `widget_name` (string) - Name to give the new Button.
+- `text` (string, **required**) - Text to display on the button.
+- `position` (array, optional) - `[X, Y]` position in the canvas panel.
+
+**Example (raw command):**
 ```json
 {
   "command": "add_button_to_widget",
   "params": {
-    "widget_name": "WBP_MainMenu",
-    "button_name": "PlayButton",
+    "blueprint_name": "WBP_MainMenu",
+    "widget_name": "PlayButton",
     "text": "Play",
-    "position": [100, 200],
-    "size": [200, 60]
+    "position": [100, 200]
   }
 }
 ```
@@ -108,24 +114,27 @@ Add a Button widget to a UMG Widget Blueprint.
 
 ## bind_widget_event
 
-Bind an event on a widget component to a function.
+Create (or reuse) the standard bound event node for a widget — e.g. `OnClicked`
+for a Button — in the Widget Blueprint's event graph. The blueprint is compiled
+and saved afterwards. Custom target function names are **not supported**;
+implement the event body with the [Blueprint node tools](node_tools.md).
 
-**Parameters:**
-- `widget_name` (string) - Name of the target Widget Blueprint.
-- `widget_component_name` (string) - Name of the widget component (button, etc.).
+**MCP tool arguments:** `widget_name` (target Blueprint), `widget_component_name`,
+`event_name`
+
+**Wire parameters:**
+- `blueprint_name` (string) - Name of the target Widget Blueprint.
+- `widget_name` (string) - Name of the widget component whose event is bound.
 - `event_name` (string) - Name of the event to bind (e.g. `OnClicked`).
-- `function_name` (string, optional) - Function to create/bind to. Defaults to
-  `"{widget_component_name}_{event_name}"` when omitted.
 
-**Example:**
+**Example (raw command):**
 ```json
 {
   "command": "bind_widget_event",
   "params": {
-    "widget_name": "WBP_MainMenu",
-    "widget_component_name": "PlayButton",
-    "event_name": "OnClicked",
-    "function_name": "OnPlayClicked"
+    "blueprint_name": "WBP_MainMenu",
+    "widget_name": "PlayButton",
+    "event_name": "OnClicked"
   }
 }
 ```
@@ -134,45 +143,56 @@ Bind an event on a widget component to a function.
 
 ## add_widget_to_viewport
 
-Add a Widget Blueprint instance to the viewport.
+Validate a Widget Blueprint's generated class and return its class path.
 
-**Parameters:**
-- `widget_name` (string) - Name of the Widget Blueprint to add.
-- `z_order` (integer, default: `0`) - Z-order (higher numbers appear on top).
+> ⚠️ **This does not display the widget.** Adding a widget to a viewport
+> requires a game context; the handler returns the class path plus a note telling
+> you to use `CreateWidget` + `AddToViewport` Blueprint nodes in game.
 
-**Example:**
+**MCP tool arguments:** `widget_name`, `z_order`
+
+**Wire parameters:**
+- `blueprint_name` (string) - Name of the Widget Blueprint.
+- `z_order` (integer, default: `0`) - Echoed back in the response.
+
+**Example (raw command):**
 ```json
 {
   "command": "add_widget_to_viewport",
   "params": {
-    "widget_name": "WBP_MainMenu",
+    "blueprint_name": "WBP_MainMenu",
     "z_order": 0
   }
 }
 ```
 
+**Returns:** `blueprint_name`, `class_path`, `z_order`, and a usage `note`.
+
 ---
 
 ## set_text_block_binding
 
-Set up a property binding for a Text Block widget so its content updates
-dynamically instead of being set directly.
+Create a **Text** member variable named after the binding plus a
+`Get<binding_name>` function graph wired to return it, for use as a Text Block
+property binding. Only Text bindings are supported. The blueprint is compiled and
+saved afterwards.
 
-**Parameters:**
-- `widget_name` (string) - Name of the target Widget Blueprint.
-- `text_block_name` (string) - Name of the Text Block to bind.
-- `binding_property` (string) - Name of the property to bind to.
-- `binding_type` (string, default: `"Text"`) - Type of binding (Text, Visibility, etc.).
+**MCP tool arguments:** `widget_name` (target Blueprint), `text_block_name`,
+`binding_property`
 
-**Example:**
+**Wire parameters:**
+- `blueprint_name` (string) - Name of the target Widget Blueprint.
+- `widget_name` (string) - Name of the Text Block to bind.
+- `binding_name` (string) - Name of the variable/binding function to create.
+
+**Example (raw command):**
 ```json
 {
   "command": "set_text_block_binding",
   "params": {
-    "widget_name": "WBP_HUD",
-    "text_block_name": "ScoreText",
-    "binding_property": "CurrentScore",
-    "binding_type": "Text"
+    "blueprint_name": "WBP_HUD",
+    "widget_name": "ScoreText",
+    "binding_name": "CurrentScore"
   }
 }
 ```
@@ -181,19 +201,23 @@ dynamically instead of being set directly.
 
 ## Error Handling
 
-All tools return a `success` flag (or `status`) and a `message` on failure.
+Bridge-level errors come back as a `status`/`error` pair. Some UMG handlers also
+return a bare `{"error": "..."}` object for missing parameters.
 
 ```json
 {
-  "success": false,
-  "message": "Widget Blueprint 'WBP_MainMenu' not found"
+  "status": "error",
+  "error": "Widget Blueprint 'WBP_MainMenu' already exists"
 }
 ```
 
 ## Implementation Notes
 
 - Only **Text Block** and **Button** widget types are supported for direct
-  addition today. Other widget types can be authored via `execute_python`.
-- Use `set_text_block_binding` for dynamic values rather than re-setting text.
-- Bind events to functions with `bind_widget_event`, then implement the function
-  body with the Blueprint node tools.
+  addition today. Other widget types (and all styling) can be authored via
+  `execute_python`.
+- All UMG handlers load the target Widget Blueprint from `/Game/Widgets/<name>`.
+- `add_button_to_widget`, `bind_widget_event` and `set_text_block_binding`
+  compile **and save** the Widget Blueprint; `create_umg_widget_blueprint` and
+  `add_text_block_to_widget` compile it and mark the package dirty (save with
+  [`save_all`](level_tools.md#save_all) or [`save_asset`](asset_tools.md#save_asset)).

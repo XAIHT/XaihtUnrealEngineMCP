@@ -22,13 +22,17 @@ def register_project_tools(mcp: FastMCP):
         input_type: str = "Action"
     ) -> Dict[str, Any]:
         """
-        Create an input mapping for the project.
-        
+        Create a legacy input ACTION mapping for the project.
+
+        Writes to the legacy `PlayerInput` action mappings (not Enhanced Input)
+        and saves the input settings config.
+
         Args:
             action_name: Name of the input action
             key: Key to bind (SpaceBar, LeftMouseButton, etc.)
-            input_type: Type of input mapping (Action or Axis)
-            
+            input_type: Currently IGNORED by the C++ handler — only Action
+                mappings are created (Axis mappings are not supported yet).
+
         Returns:
             Response indicating success or failure
         """

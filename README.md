@@ -23,20 +23,20 @@ This project is currently in an **EXPERIMENTAL** state. The API, functionality, 
 
 ## 🌟 Overview
 
-The Unreal MCP integration provides comprehensive tools for controlling Unreal Engine through natural language — **~56 tools across 10 categories**:
+The Unreal MCP integration provides comprehensive tools for controlling Unreal Engine through natural language — **63 tools across 10 categories** (backed by 61 commands in the C++ bridge; list them live with `get_supported_commands`):
 
 | Category | Capabilities |
 |----------|-------------|
 | **Actor Management** | • Spawn and delete actors (static meshes, lights, cameras)<br>• Set actor transforms (position, rotation, scale)<br>• Query and set actor properties; find actors by name<br>• List all actors in the current level |
-| **Blueprint Development** | • Create new Blueprint classes with custom components<br>• Add and configure components (mesh, camera, light, etc.)<br>• Set component properties, physics, and Pawn settings<br>• Compile Blueprints and spawn Blueprint actors |
+| **Blueprint Development** | • Create new Blueprint classes with custom components<br>• Add and configure components (mesh, camera, light, etc.)<br>• Set component properties, physics, and Pawn settings<br>• Compile Blueprints and spawn Blueprint actors<br>• Save Blueprints to disk and check for unsaved changes |
 | **Blueprint Node Graph** | • Add event nodes (BeginPlay, Tick, etc.)<br>• Create function call nodes and connect them<br>• Add variables with custom types and default values<br>• Create component and self references; find nodes |
 | **Editor Control** | • Focus viewport on specific actors or locations<br>• Capture viewport screenshots to disk |
 | **UMG (Widgets)** | • Create Widget Blueprints; add Text Block and Button widgets<br>• Bind widget events and text-block property bindings<br>• Add widgets to the viewport |
 | **Input** | • Create legacy input action/axis mappings |
-| **System / Introspection** | • Run Python inside the editor (`execute_python` — universal escape hatch)<br>• Execute console commands / CVars<br>• Reflect classes (`get_class_info`), list assets, call any bridge command |
+| **System / Introspection** | • Run Python inside the editor (`execute_python` / `execute_python_file` — universal escape hatch)<br>• Execute console commands / CVars<br>• Reflect classes (`get_class_info`), list assets, discover bridge commands (`get_supported_commands`), call any bridge command |
 | **Level / World** | • Open, create, and save levels<br>• Save all dirty packages; query the current level |
 | **Assets** | • Import FBX/textures/audio; duplicate, rename, delete, save assets<br>• Create content-browser folders |
-| **Materials** | • Create materials and material instances<br>• Set scalar/vector parameters; assign materials to actors |
+| **Materials** | • Create materials and material instances<br>• Set scalar/vector/texture parameters; query material info<br>• Assign materials to actors (single slot or all slots) |
 | **Automation** | • Compose multi-step workflows (`run_macro`)<br>• Headless build and automation-test runs (editor-independent) |
 
 All these capabilities are accessible through natural language commands via AI assistants, making it easy to automate and control Unreal Engine workflows. See **[Docs/Tools/](Docs/Tools/README.md)** for per-tool reference.

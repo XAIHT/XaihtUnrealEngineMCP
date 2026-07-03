@@ -175,7 +175,7 @@ def main():
         # BeginPlay event
         begin_play_params = {
             "blueprint_name": "InputControllerBP",
-            "event_type": "BeginPlay",
+            "event_name": "ReceiveBeginPlay",
             "node_position": [0, 0]
         }
         
@@ -244,7 +244,7 @@ def main():
             # Create placeholder event node
             event_params = {
                 "blueprint_name": "InputControllerBP",
-                "event_type": "BeginPlay",  # Using BeginPlay as a placeholder for InputAction
+                "event_name": "ReceiveBeginPlay",  # Using BeginPlay as a placeholder for InputAction
                 "node_position": action_positions[action_name]
             }
             

@@ -85,6 +85,7 @@ Source/UnrealMCP/
 ## Command Distribution (as-built)
 
 ### FUnrealMCPEditorCommands (actor + editor):
+> `ping` is registered under the `editor` category but answered inline by the bridge.
 - `get_actors_in_level`
 - `find_actors_by_name`
 - `spawn_actor` (and legacy alias `create_actor`)
@@ -105,6 +106,8 @@ Source/UnrealMCP/
 - `set_blueprint_property`
 - `set_static_mesh_properties`
 - `set_pawn_properties`
+- `save_blueprint`
+- `is_blueprint_dirty`
 
 ### FUnrealMCPBlueprintNodeCommands:
 - `connect_blueprint_nodes`
@@ -132,9 +135,14 @@ Source/UnrealMCP/
 
 ### FUnrealMCPSystemCommands:
 - `execute_python`
+- `execute_python_file`
 - `execute_console_command`
 - `get_class_info`
 - `list_assets`
+
+> `get_supported_commands` is registered under the `system` category but is
+> answered inline by `UUnrealMCPBridge::ExecuteCommand` (like `ping`), so the
+> returned list always matches the dispatch registry.
 
 ### FUnrealMCPLevelCommands:
 - `open_level`
@@ -156,6 +164,9 @@ Source/UnrealMCP/
 - `create_material_instance`
 - `set_material_parameter`
 - `assign_material`
+- `set_material_color`
+- `get_material_info`
+- `assign_material_to_all_slots`
 
 ## Utility Methods in UnrealMCPCommonUtils
 

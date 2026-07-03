@@ -21,15 +21,21 @@ project-wide settings and configuration.
 
 ## create_input_mapping
 
-Create an input mapping for the project.
+Create a legacy input **Action** mapping for the project and save the input
+settings config.
 
 **Parameters:**
 - `action_name` (string) - Name of the input action.
 - `key` (string) - Key to bind (e.g. `SpaceBar`, `LeftMouseButton`).
-- `input_type` (string, default: `"Action"`) - Type of input mapping (`Action` or `Axis`).
+- `shift` / `ctrl` / `alt` / `cmd` (boolean, optional) - Modifier flags
+  (accepted at the bridge level; not exposed by the Python MCP tool yet).
+
+> The Python tool also accepts an `input_type` argument, but it is **currently
+> ignored by the C++ handler** — only Action mappings are created. Axis mappings
+> are not supported yet; use `execute_python` for those.
 
 **Returns:**
-- Response indicating success or failure.
+- The created mapping's `action_name` and `key`.
 
 **Example:**
 ```json
@@ -37,8 +43,7 @@ Create an input mapping for the project.
   "command": "create_input_mapping",
   "params": {
     "action_name": "Jump",
-    "key": "SpaceBar",
-    "input_type": "Action"
+    "key": "SpaceBar"
   }
 }
 ```

@@ -197,19 +197,19 @@ arguments per call.
 
 ---
 
-## 8. Available tool categories (~56 tools)
+## 8. Available tool categories (63 tools)
 
 | Category | Module | Examples |
 |---|---|---|
 | Actor / Editor | `editor_tools.py` | `spawn_actor`, `delete_actor`, `set_actor_transform`, `take_screenshot` |
-| Blueprint | `blueprint_tools.py` | `create_blueprint`, `add_component_to_blueprint`, `compile_blueprint` |
+| Blueprint | `blueprint_tools.py` | `create_blueprint`, `add_component_to_blueprint`, `compile_blueprint`, `save_blueprint` |
 | Blueprint nodes | `node_tools.py` | `add_blueprint_event_node`, `connect_blueprint_nodes`, `add_blueprint_variable` |
 | Input (legacy) | `project_tools.py` | `create_input_mapping` |
 | UMG | `umg_tools.py` | `create_umg_widget_blueprint`, `add_button_to_widget` |
-| **System** | `system_tools.py` | `execute_python`, `execute_console_command`, `get_class_info`, `list_assets`, `call_unreal` |
+| **System** | `system_tools.py` | `execute_python`, `execute_python_file`, `execute_console_command`, `get_class_info`, `list_assets`, `get_supported_commands`, `call_unreal` |
 | **Level / World** | `level_tools.py` | `open_level`, `save_current_level`, `new_level`, `get_current_level` |
 | **Assets** | `asset_tools.py` | `import_asset`, `duplicate_asset`, `delete_asset`, `create_folder` |
-| **Materials** | `material_tools.py` | `create_material`, `create_material_instance`, `set_material_parameter`, `assign_material` |
+| **Materials** | `material_tools.py` | `create_material`, `create_material_instance`, `set_material_parameter`, `assign_material`, `set_material_color` |
 | **Automation** | `automation_tools.py` | `run_macro`, `build_project`, `run_automation_tests` |
 
 `execute_python` is the universal escape hatch — anything the editor's `unreal` Python
@@ -226,7 +226,7 @@ API can do is reachable through it.
 | `execute_python` returns "Python scripting is not available" | Enable **Python Editor Script Plugin** (Edit → Plugins), restart the editor. |
 | Compile errors mentioning `PythonScriptPlugin` / `AssetTools` / `MaterialEditor` | Those modules are now build deps; make sure the engine has them (they ship with the editor) and regenerate project files + rebuild. |
 | `uv` not found | Reopen the terminal after install, or add uv to PATH. |
-| Port 55557 already in use | Another editor instance/server is running; close it. (Host/port are defined in `MCPServerRunnable.cpp` / `unreal_mcp_server.py`.) |
+| Port 55557 already in use | Another editor instance/server is running; close it. (Host/port are defined in `UnrealMCPBridge.cpp` / `unreal_mcp_server.py`.) |
 | Want detailed logs | See `Python/unreal_mcp.log` (DEBUG level) and the editor **Output Log**. |
 
 ---

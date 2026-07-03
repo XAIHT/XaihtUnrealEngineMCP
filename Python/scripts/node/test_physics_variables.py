@@ -183,7 +183,7 @@ def main():
         # Step 5: Add BeginPlay event node
         begin_play_params = {
             "blueprint_name": "PhysicsObstacleBP",
-            "event_type": "BeginPlay",
+            "event_name": "ReceiveBeginPlay",
             "node_position": [0, 0]
         }
         
@@ -206,7 +206,7 @@ def main():
         # Step 6: Add Tick event node
         tick_params = {
             "blueprint_name": "PhysicsObstacleBP",
-            "event_type": "Tick",
+            "event_name": "ReceiveTick",
             "node_position": [0, 200]
         }
         

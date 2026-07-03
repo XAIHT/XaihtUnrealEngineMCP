@@ -77,12 +77,14 @@ def register_material_tools(mcp: FastMCP):
         Args:
             material: Path of the material instance, e.g. "/Game/Materials/MI_Base".
             parameter: Parameter name as defined in the parent material.
-            value: A number for a scalar parameter, or [r, g, b] / [r, g, b, a] for a
-                   vector/color parameter.
+            value: A number for a scalar parameter, [r, g, b] / [r, g, b, a] for a
+                   vector/color parameter, or a texture asset path for a texture
+                   parameter.
         """
+        # C++ handler keys: material_path, parameter_name, value.
         return _send("set_material_parameter", {
-            "material": material,
-            "parameter": parameter,
+            "material_path": material,
+            "parameter_name": parameter,
             "value": value
         })
 
@@ -94,17 +96,21 @@ def register_material_tools(mcp: FastMCP):
         slot: int = 0
     ) -> Dict[str, Any]:
         """
-        Assign a material to a level actor's mesh component slot.
+        Assign a material to a level actor's mesh components at a given slot.
+
+        The actor is matched by internal name or editor label; the material is
+        applied to the given slot index on every mesh component of the actor.
 
         Args:
-            actor: Name of the level actor.
+            actor: Name (or label) of the level actor.
             material: Path of the material/instance to assign.
             slot: Material slot index (default 0).
         """
+        # C++ handler keys: actor_name, material_path, slot_index.
         return _send("assign_material", {
-            "actor": actor,
-            "material": material,
-            "slot": slot
+            "actor_name": actor,
+            "material_path": material,
+            "slot_index": slot
         })
 
     @mcp.tool()
@@ -122,25 +128,27 @@ def register_material_tools(mcp: FastMCP):
             color: [r, g, b] or [r, g, b, a] array (0-1 range).
             parameter: Parameter name to set (default "BaseColor").
         """
+        # C++ handler keys: material_path, parameter_name, color.
         return _send("set_material_color", {
-            "material": material,
-            "color": color,
-            "parameter": parameter
+            "material_path": material,
+            "parameter_name": parameter,
+            "color": color
         })
 
     @mcp.tool()
     def get_material_info(ctx: Context, material: str) -> Dict[str, Any]:
         """
-        Query all parameters of a material or material instance.
+        Query basic information about a material or material instance.
 
         Args:
             material: Path of the material to inspect.
 
         Returns:
-            Dict with `name`, `class`, `scalar_parameters`, `vector_parameters`,
-            and `texture_parameters`.
+            Dict with `name`, `path`, and `class`. (Parameter enumeration is not
+            implemented in the C++ handler yet — use `execute_python` for that.)
         """
-        return _send("get_material_info", {"material": material})
+        # C++ handler key: material_path.
+        return _send("get_material_info", {"material_path": material})
 
     @mcp.tool()
     def assign_material_to_all_slots(
@@ -149,15 +157,16 @@ def register_material_tools(mcp: FastMCP):
         material: str
     ) -> Dict[str, Any]:
         """
-        Assign a material to every slot of a level actor's mesh component.
+        Assign a material to every slot of every mesh component on a level actor.
 
         Args:
-            actor: Name of the level actor.
+            actor: Name (or label) of the level actor.
             material: Path of the material/instance to assign.
         """
+        # C++ handler keys: actor_name, material_path.
         return _send("assign_material_to_all_slots", {
-            "actor": actor,
-            "material": material
+            "actor_name": actor,
+            "material_path": material
         })
 
     logger.info("Material tools registered successfully")

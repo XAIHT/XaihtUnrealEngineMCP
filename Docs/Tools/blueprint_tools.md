@@ -12,12 +12,17 @@ Blueprint tools allow you to create and manipulate Blueprint assets in Unreal En
 
 Create a new Blueprint class.
 
+> Blueprints are always created at **`/Game/Blueprints/<name>`** — all other
+> Blueprint tools look them up under that same fixed path.
+
 **Parameters:**
 - `name` (string) - The name for the new Blueprint class
-- `parent_class` (string) - The parent class for the Blueprint
+- `parent_class` (string) - The parent class name without prefix (e.g. `"Actor"`,
+  `"Pawn"`). Resolved against `/Script/Engine` and `/Script/Game`; **falls back to
+  `Actor`** (with a log warning) if the class cannot be found.
 
 **Returns:**
-- Information about the created Blueprint including success status and message
+- The created Blueprint's `name` and `path`
 
 **Example:**
 ```json
@@ -41,10 +46,16 @@ Add a component to a Blueprint.
 - `location` (array, optional) - [X, Y, Z] coordinates for component's position, defaults to [0, 0, 0]
 - `rotation` (array, optional) - [Pitch, Yaw, Roll] values for component's rotation, defaults to [0, 0, 0]
 - `scale` (array, optional) - [X, Y, Z] values for component's scale, defaults to [1, 1, 1]
-- `component_properties` (object, optional) - Additional properties to set on the component
+- `component_properties` (object, optional) - **Currently ignored by the C++
+  handler.** Set properties afterwards with `set_component_property`.
 
 **Returns:**
 - Information about the added component including success status and message
+
+> The component type is resolved by trying the given name, then with a
+> `Component` suffix, a `U` prefix, and both — so `"StaticMesh"`,
+> `"StaticMeshComponent"` and `"UStaticMeshComponent"` all work. The blueprint is
+> automatically compiled after the component is added.
 
 **Example:**
 ```json
@@ -120,10 +131,11 @@ Set physics properties on a component.
 
 **Parameters:**
 - `blueprint_name` (string) - The name of the Blueprint
-- `component_name` (string) - The name of the component
+- `component_name` (string) - The name of the component (must be a primitive component)
 - `simulate_physics` (boolean, optional) - Whether to simulate physics, defaults to true
-- `gravity_enabled` (boolean, optional) - Whether gravity is enabled, defaults to true
-- `mass` (float, optional) - The mass of the component, defaults to 1.0
+- `gravity_enabled` (boolean, optional) - **Currently ignored by the C++ handler.**
+  Use `set_component_property` with `bEnableGravity` instead.
+- `mass` (float, optional) - Mass override in kg (`SetMassOverrideInKg`), defaults to 1.0
 - `linear_damping` (float, optional) - Linear damping value, defaults to 0.01
 - `angular_damping` (float, optional) - Angular damping value, defaults to 0.0
 
@@ -222,12 +234,18 @@ Set common Pawn properties on a Blueprint.
 
 Spawn an actor from a Blueprint.
 
+> Although the Python wrapper lives in `blueprint_tools.py`'s sibling
+> `editor_tools.py`, the bridge routes this command to the **editor** handler
+> (`FUnrealMCPEditorCommands::HandleSpawnBlueprintActor`). The Blueprint asset
+> must exist under **`/Game/Blueprints/`**.
+
 **Parameters:**
-- `blueprint_name` (string) - The name of the Blueprint to spawn
+- `blueprint_name` (string) - The name of the Blueprint to spawn (looked up at `/Game/Blueprints/<name>`)
 - `actor_name` (string) - The name for the spawned actor
 - `location` (array, optional) - [X, Y, Z] coordinates for the actor's position, defaults to [0, 0, 0]
 - `rotation` (array, optional) - [Pitch, Yaw, Roll] values for the actor's rotation, defaults to [0, 0, 0]
 - `scale` (array, optional) - [X, Y, Z] values for the actor's scale, defaults to [1, 1, 1]
+  (accepted at the bridge level; the Python MCP tool currently sends only location and rotation)
 
 **Returns:**
 - Information about the spawned actor including success status and message
@@ -242,6 +260,46 @@ Spawn an actor from a Blueprint.
     "location": [0, 0, 100],
     "rotation": [0, 45, 0],
     "scale": [1, 1, 1]
+  }
+}
+```
+
+### save_blueprint
+
+Save a Blueprint asset to disk (`UPackage::SavePackage`).
+
+**Parameters:**
+- `blueprint_name` (string) - The name of the Blueprint to save
+
+**Returns:**
+- `blueprint` (string), `saved` (boolean), `path` (string)
+
+**Example:**
+```json
+{
+  "command": "save_blueprint",
+  "params": {
+    "blueprint_name": "MyActor"
+  }
+}
+```
+
+### is_blueprint_dirty
+
+Check whether a Blueprint has unsaved changes.
+
+**Parameters:**
+- `blueprint_name` (string) - The name of the Blueprint to check
+
+**Returns:**
+- `blueprint` (string), `dirty` (boolean)
+
+**Example:**
+```json
+{
+  "command": "is_blueprint_dirty",
+  "params": {
+    "blueprint_name": "MyActor"
   }
 }
 ```
@@ -265,4 +323,6 @@ All command responses include a "success" field indicating whether the operation
 - All commands require a successful connection to the Unreal Engine editor
 - Failed operations will return detailed error messages in the response
 - Component types should be specified without the 'U' prefix (e.g., "StaticMeshComponent" instead of "UStaticMeshComponent")
-- For socket-based communication, refer to the test scripts in unreal-mcp/Python/scripts/blueprints for examples
+- **All Blueprint tools resolve blueprints at the fixed path `/Game/Blueprints/<name>`**
+  (`FUnrealMCPCommonUtils::FindBlueprintByName`)
+- For socket-based communication, refer to the test scripts in Python/scripts/blueprints for examples

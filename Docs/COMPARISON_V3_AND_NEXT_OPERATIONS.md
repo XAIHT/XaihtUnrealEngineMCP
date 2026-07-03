@@ -4,6 +4,16 @@
 > content categories (Level, Asset, Material), and the P3 automation tools.
 > Supersedes the tables in `IMPROVEMENT_PROPOSAL.md` and `NEW_OPERATIONS_PROPOSAL.md`.
 > Competitor data is from the same-day GitHub research.
+>
+> **⚠️ Snapshot — partially superseded (July 2026).** Since this was written, the
+> v2.0 improvements landed (see `IMPROVEMENTS_SUMMARY.md`): the if/else dispatch
+> was replaced by a **self-registering command registry** (§3's "TMap command
+> registry" item is DONE), `get_supported_commands` provides runtime discovery,
+> and 7 new commands were added (`execute_python_file`, `save_blueprint`,
+> `is_blueprint_dirty`, `set_material_color`, `get_material_info`,
+> `assign_material_to_all_slots`, `get_supported_commands`). Current surface:
+> **63 MCP tools / 61 bridge commands**. The tables below reflect the 2026-05-24
+> state and are kept for history.
 
 ---
 

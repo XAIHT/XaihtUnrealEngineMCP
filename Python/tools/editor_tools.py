@@ -81,17 +81,21 @@ def register_editor_tools(mcp: FastMCP):
         name: str,
         type: str,
         location: List[float] = [0.0, 0.0, 0.0],
-        rotation: List[float] = [0.0, 0.0, 0.0]
+        rotation: List[float] = [0.0, 0.0, 0.0],
+        scale: List[float] = [1.0, 1.0, 1.0]
     ) -> Dict[str, Any]:
         """Create a new actor in the current level.
-        
+
         Args:
             ctx: The MCP context
-            name: The name to give the new actor (must be unique)
-            type: The type of actor to create (e.g. StaticMeshActor, PointLight)
+            name: The name to give the new actor (must be unique in the level)
+            type: The type of actor to create. Matched case-sensitively by the
+                  plugin; supported values: StaticMeshActor, PointLight,
+                  SpotLight, DirectionalLight, CameraActor.
             location: The [x, y, z] world location to spawn at
             rotation: The [pitch, yaw, roll] rotation in degrees
-            
+            scale: The [x, y, z] scale to apply after spawning
+
         Returns:
             Dict containing the created actor's properties
         """
@@ -103,16 +107,19 @@ def register_editor_tools(mcp: FastMCP):
                 logger.error("Failed to connect to Unreal Engine")
                 return {"success": False, "message": "Failed to connect to Unreal Engine"}
             
-            # Ensure all parameters are properly formatted
+            # Ensure all parameters are properly formatted.
+            # The C++ handler matches the type string exactly (case-sensitive),
+            # so pass it through unchanged (e.g. "StaticMeshActor", "PointLight").
             params = {
                 "name": name,
-                "type": type.upper(),  # Make sure type is uppercase
+                "type": type,
                 "location": location,
-                "rotation": rotation
+                "rotation": rotation,
+                "scale": scale
             }
-            
-            # Validate location and rotation formats
-            for param_name in ["location", "rotation"]:
+
+            # Validate location, rotation and scale formats
+            for param_name in ["location", "rotation", "scale"]:
                 param_value = params[param_name]
                 if not isinstance(param_value, list) or len(param_value) != 3:
                     logger.error(f"Invalid {param_name} format: {param_value}. Must be a list of 3 float values.")

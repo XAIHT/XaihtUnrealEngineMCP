@@ -19,7 +19,7 @@ Commands used:
 13. compile_blueprint - Compiles the Blueprint
 14. set_pawn_properties - Sets auto-possess properties
 15. spawn_blueprint_actor - Spawns the bird in the level
-16. create_actor - Creates a camera actor
+16. spawn_actor - Creates a camera actor
 
 Blueprint Graph Layout:
 ```
@@ -593,8 +593,9 @@ def main():
         logger.info("Bird spawned successfully!")
 
         # Step 21 (formerly 15): Add a camera to the level
-        # Create a camera actor
-        response = send_mcp_command("create_actor", {
+        # Create a camera actor (spawn_actor is the canonical command;
+        # create_actor is only kept as a deprecated alias)
+        response = send_mcp_command("spawn_actor", {
             "name": "GameCamera",
             "type": "CameraActor",
             "location": [500.0, 0.0, 250.0],  # Position camera to view the bird from a distance
