@@ -589,8 +589,13 @@ TSharedPtr<FJsonObject> FUnrealMCPEditorCommands::HandleTakeScreenshot(const TSh
         
         if (Viewport->ReadPixels(Bitmap, FReadSurfaceDataFlags(), ViewportRect))
         {
-            TArray<uint8> CompressedBitmap;
-            FImageUtils::CompressImageArray(Viewport->GetSizeXY().X, Viewport->GetSizeXY().Y, Bitmap, CompressedBitmap);
+            // UE 5.8: FImageUtils::CompressImageArray is deprecated (C4996; removed in a
+            // future release). The screenshot is a .png, so use the PNG-specific successor.
+            // NOTE: PNGCompressImageArray writes into a TArray64<uint8> (FDefaultAllocator64),
+            // unlike the deprecated CompressImageArray which used a 32-bit TArray<uint8>.
+            // FFileHelper::SaveArrayToFile accepts it via its TArrayView64<const uint8> overload.
+            TArray64<uint8> CompressedBitmap;
+            FImageUtils::PNGCompressImageArray(Viewport->GetSizeXY().X, Viewport->GetSizeXY().Y, Bitmap, CompressedBitmap);
             
             if (FFileHelper::SaveArrayToFile(CompressedBitmap, *FilePath))
             {

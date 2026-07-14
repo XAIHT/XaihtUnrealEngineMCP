@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Fix for Visual Studio 2026 (VC v180): "MSB4018 The SetEnv task failed unexpectedly /
+  System.ArgumentException: Environment variable name or value is too long."
+
+  Unreal projects are NMake/Makefile .vcxproj that delegate the build to
+  UnrealBuildTool (Build.bat). UBT writes the FULL engine+project+plugin include
+  list (35k+ chars for an editor target) into <IncludePath>. VS 2026's C++ targets
+  add a new step, AddExternalIncludDirectoriesToPaths, that pushes that list into the
+  INCLUDE environment variable; once it passes the Windows 32,767-char env-var limit
+  the SetEnv task throws and the build stops BEFORE it ever runs UBT.
+
+  The real UE build (UnrealBuildTool) passes include paths to the compiler DIRECTLY
+  and does NOT read this INCLUDE env var, and IntelliSense uses <NMakeIncludeSearchPath>
+  (not <IncludePath>). So we reset <IncludePath>/<ExternalIncludePath> to the short
+  default toolchain includes purely to keep the SetEnv step under the limit. This does
+  NOT affect the compiled result or IntelliSense.
+
+  MSBuild imports this automatically (it walks up from the generated
+  Intermediate\ProjectFiles\*.vcxproj to the project root), and it survives a
+  "Generate Visual Studio project files" regeneration because it lives outside
+  the regenerated Intermediate\ folder. The scaffolder copies it into every new
+  project because it sits at the template root.
+-->
+<Project>
+  <PropertyGroup>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath)</ExternalIncludePath>
+  </PropertyGroup>
+</Project>
